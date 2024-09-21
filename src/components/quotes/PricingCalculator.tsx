@@ -1,6 +1,6 @@
 // src/components/quotes/PricingCalculator.tsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Typography, Paper, Grid, CircularProgress } from '@mui/material';
 import { RampConfiguration } from '../../types/Quote';
 import { PricingVariables } from '../../types/Pricing';
@@ -26,8 +26,8 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const debouncedCalculatePrices = useCallback(
-    (config: RampConfiguration, address: string, variables: PricingVariables) => {
+  const debouncedCalculatePrices = useMemo(
+    () => debounce((config: RampConfiguration, address: string, variables: PricingVariables) => {
       setIsLoading(true);
       setError(null);
       calculatePricing({
@@ -45,8 +45,8 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration
         .finally(() => {
           setIsLoading(false);
         });
-    },
-    [] // Empty dependency array is fine here as we're not using any external values
+    }, 500),
+    [setIsLoading, setError, setPricing]
   );
 
   useEffect(() => {
