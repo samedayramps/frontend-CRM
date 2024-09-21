@@ -26,7 +26,7 @@ export interface Quote {
   customerName: string;
   rampConfiguration: RampConfiguration;
   pricingCalculations: PricingCalculations;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed' | 'pending';
   createdAt: string;
   updatedAt: string;
   warehouseAddress: string;

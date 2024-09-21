@@ -43,7 +43,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
           totalUpfront: 0,
           distance: 0,
         },
-        status: 'pending',
+        status: 'draft' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         warehouseAddress: '',

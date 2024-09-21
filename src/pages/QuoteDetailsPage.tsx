@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Paper, Button, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
-import { fetchQuote, updateQuote, deleteQuote, fetchCustomers, createQuote } from '../api/apiService';
+import { fetchQuote, updateQuote, deleteQuote, fetchCustomers, createQuote, sendQuoteEmail } from '../api/apiService';
 import { Quote, NewQuote } from '../types/Quote';
 import { Customer } from '../types/Customer';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
@@ -17,6 +17,7 @@ const QuoteDetailsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -34,7 +35,7 @@ const QuoteDetailsPage: React.FC = () => {
             customerName: '',
             rampConfiguration: { components: [], totalLength: 0 },
             pricingCalculations: { deliveryFee: 0, installFee: 0, monthlyRentalRate: 0, totalUpfront: 0, distance: 0 },
-            status: 'pending',
+            status: 'draft',
             warehouseAddress: '',
             installAddress: '',
             createdAt: new Date().toISOString(),
@@ -89,6 +90,22 @@ const QuoteDetailsPage: React.FC = () => {
     }
   };
 
+  const handleSendQuote = async () => {
+    if (id) {
+      setIsSending(true);
+      setError(null);
+      try {
+        await sendQuoteEmail(id);
+        // Update the quote status locally
+        setQuote(prevQuote => prevQuote ? { ...prevQuote, status: 'sent' } : null);
+      } catch (err: any) {
+        setError(err.message || 'Failed to send quote email');
+      } finally {
+        setIsSending(false);
+      }
+    }
+  };
+
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
   if (!quote && id) return <ErrorMessage message="Quote not found" />;
@@ -136,11 +153,29 @@ const QuoteDetailsPage: React.FC = () => {
               <Typography>Distance: {quote.pricingCalculations.distance.toFixed(2)} miles</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Button variant="contained" color="primary" onClick={() => setIsEditing(true)} className="mr-2">
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={() => setIsEditing(true)} 
+                className="mr-2"
+              >
                 Edit
               </Button>
-              <Button variant="contained" color="secondary" onClick={() => setIsDeleting(true)}>
+              <Button 
+                variant="contained" 
+                color="secondary" 
+                onClick={() => setIsDeleting(true)}
+                className="mr-2"
+              >
                 Delete
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSendQuote}
+                disabled={isSending || quote.status === 'sent'}
+              >
+                {isSending ? 'Sending...' : 'Send Quote'}
               </Button>
             </Grid>
           </Grid>

@@ -8,6 +8,7 @@ import RentalRequestsPage from './pages/RentalRequestsPage';
 import RentalRequestDetailsPage from './pages/RentalRequestDetailsPage';
 import QuotesPage from './pages/QuotesPage';
 import QuoteDetailsPage from './pages/QuoteDetailsPage';
+import QuoteAcceptancePage from './pages/QuoteAcceptancePage';
 import CustomersPage from './pages/CustomersPage';
 import CustomerDetailsPage from './pages/CustomerDetailsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -45,6 +46,7 @@ const App: React.FC = () => {
             <Route path="/quotes" element={<QuotesPage />} />
             <Route path="/quotes/:id" element={<QuoteDetailsPage />} />
             <Route path="/quotes/new" element={<QuoteDetailsPage />} />
+            <Route path="/quotes/:id/accept" element={<QuoteAcceptancePage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/customers/new" element={<CustomerDetailsPage />} />
             <Route path="/customers/:id" element={<CustomerDetailsPage />} />

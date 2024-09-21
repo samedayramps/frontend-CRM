@@ -273,6 +273,14 @@ export const sendQuoteEmail = async (quoteId: string): Promise<void> => {
   }
 };
 
+export const acceptQuote = async (quoteId: string, token: string): Promise<void> => {
+  try {
+    await apiClient.post(`/quotes/${quoteId}/accept`, { token });
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
 export const createCustomerFromRentalRequest = async (rentalRequestId: string): Promise<Customer> => {
   try {
     const response = await apiClient.post<Customer>(`/customers/from-rental-request/${rentalRequestId}`);
