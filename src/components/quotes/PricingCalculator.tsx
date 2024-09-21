@@ -1,27 +1,49 @@
 // src/components/quotes/PricingCalculator.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Typography, Paper, Grid, CircularProgress } from '@mui/material';
 import { RampConfiguration } from '../../types/Quote';
 import { PricingVariables } from '../../types/Pricing';
 import { calculatePricing, fetchPricingVariables } from '../../api/apiService';
+import debounce from 'lodash/debounce';
 
 interface PricingCalculatorProps {
   rampConfiguration: RampConfiguration;
-  customerAddress: string;
+  installAddress: string;
 }
 
-const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration, customerAddress }) => {
+const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration, installAddress }) => {
   const [pricingVariables, setPricingVariables] = useState<PricingVariables | null>(null);
   const [pricing, setPricing] = useState<{
     deliveryFee: number;
     installFee: number;
     monthlyRentalRate: number;
-    totalAmount: number;
+    totalUpfront: number;
     distance: number;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const debouncedCalculatePrices = useCallback(
+    debounce(async (config: RampConfiguration, address: string, variables: PricingVariables) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await calculatePricing({
+          rampConfiguration: config,
+          installAddress: address,
+          warehouseAddress: variables.warehouseAddress
+        });
+        setPricing(result);
+      } catch (err: any) {
+        console.error('Error calculating pricing:', err);
+        setError('Failed to calculate pricing');
+      } finally {
+        setIsLoading(false);
+      }
+    }, 500),
+    []
+  );
 
   useEffect(() => {
     const fetchVariables = async () => {
@@ -29,6 +51,7 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration
         const variables = await fetchPricingVariables();
         setPricingVariables(variables);
       } catch (err: any) {
+        console.error('Failed to fetch pricing variables:', err);
         setError('Failed to fetch pricing variables');
         setIsLoading(false);
       }
@@ -37,25 +60,12 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration
   }, []);
 
   useEffect(() => {
-    const calculatePrices = async () => {
-      if (pricingVariables && customerAddress && rampConfiguration.components.length > 0) {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const result = await calculatePricing(rampConfiguration, customerAddress, pricingVariables.warehouseAddress);
-          setPricing(result);
-        } catch (err: any) {
-          console.error('Error calculating pricing:', err);
-          setError('Failed to calculate pricing');
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
-        setIsLoading(false);
-      }
-    };
-    calculatePrices();
-  }, [rampConfiguration, customerAddress, pricingVariables]);
+    if (pricingVariables && installAddress && rampConfiguration.components.length > 0) {
+      debouncedCalculatePrices(rampConfiguration, installAddress, pricingVariables);
+    } else {
+      setIsLoading(false);
+    }
+  }, [rampConfiguration, installAddress, pricingVariables, debouncedCalculatePrices]);
 
   if (isLoading) {
     return <CircularProgress />;

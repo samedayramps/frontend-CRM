@@ -39,7 +39,7 @@ const RampConfigurationComponent: React.FC<RampConfigurationComponentProps> = ({
   };
 
   const updateConfiguration = (components: RampComponent[]) => {
-    const totalLength = components.reduce((sum, comp) => sum + (comp.length * comp.quantity), 0);
+    const totalLength = components.reduce((sum, comp) => sum + (comp.length * (comp.quantity || 1)), 0);
     onChange({ components, totalLength });
   };
 
@@ -87,7 +87,7 @@ const RampConfigurationComponent: React.FC<RampConfigurationComponentProps> = ({
             <TextField
               type="number"
               label="Quantity"
-              value={component.quantity}
+              value={component.quantity || 1}
               onChange={(e) => updateComponent(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
               inputProps={{ min: 1 }}
               fullWidth

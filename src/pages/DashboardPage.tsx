@@ -48,6 +48,14 @@ const DashboardPage: React.FC = () => {
     fetchData();
   }, []);
 
+  const handleRentalRequestClick = (id: string) => {
+    navigate(`/rental-requests/${id}`);
+  };
+
+  const handleQuoteClick = (id: string) => {
+    navigate(`/quotes/${id}`);
+  };
+
   return (
     <div className="p-4">
       <Typography variant="h4" gutterBottom>
@@ -67,26 +75,33 @@ const DashboardPage: React.FC = () => {
                 Recent Rental Requests
               </Typography>
               {recentRentalRequests.length > 0 ? (
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Customer Name</TableCell>
-                      <TableCell>Install Address</TableCell>
-                      <TableCell>Timeframe</TableCell>
-                      <TableCell>Date</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {recentRentalRequests.map((request) => (
-                      <TableRow key={request._id}>
-                        <TableCell>{`${request.customerInfo.firstName} ${request.customerInfo.lastName}`}</TableCell>
-                        <TableCell>{request.installAddress}</TableCell>
-                        <TableCell>{request.rampDetails.installTimeframe}</TableCell>
-                        <TableCell>{new Date(request.createdAt || '').toLocaleDateString()}</TableCell>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Customer Name</TableCell>
+                        <TableCell>Install Address</TableCell>
+                        <TableCell>Timeframe</TableCell>
+                        <TableCell>Date</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHead>
+                    <TableBody>
+                      {recentRentalRequests.map((request) => (
+                        <TableRow 
+                          key={request._id} 
+                          onClick={() => handleRentalRequestClick(request._id)}
+                          style={{ cursor: 'pointer' }}
+                          hover
+                        >
+                          <TableCell>{`${request.customerInfo.firstName} ${request.customerInfo.lastName}`}</TableCell>
+                          <TableCell>{request.installAddress}</TableCell>
+                          <TableCell>{request.rampDetails.installTimeframe}</TableCell>
+                          <TableCell>{new Date(request.createdAt || '').toLocaleDateString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               ) : (
                 <Typography>No recent rental requests.</Typography>
               )}
@@ -94,39 +109,44 @@ const DashboardPage: React.FC = () => {
           </Grid>
 
           {/* Recent Quotes */}
-          <Paper elevation={3} className="p-4 mt-4">
-            <Typography variant="h6" gutterBottom>
-              Recent Quotes
-            </Typography>
-            {loading ? (
-              <CircularProgress />
-            ) : (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>ID</TableCell>
-                      <TableCell>Customer</TableCell>
-                      <TableCell>Total Upfront</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Created At</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {recentQuotes.slice(0, 5).map((quote) => (
-                      <TableRow key={quote._id}>
-                        <TableCell>{quote._id}</TableCell>
-                        <TableCell>{quote.customerName}</TableCell>
-                        <TableCell>${quote.pricingCalculations.totalUpfront.toFixed(2)}</TableCell>
-                        <TableCell>{quote.status}</TableCell>
-                        <TableCell>{quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
+          <Grid item xs={12} md={6}>
+            <Paper elevation={3} style={{ padding: '16px' }}>
+              <Typography variant="h6" gutterBottom>
+                Recent Quotes
+              </Typography>
+              {recentQuotes.length > 0 ? (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Customer</TableCell>
+                        <TableCell>Total Upfront</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Created At</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Paper>
+                    </TableHead>
+                    <TableBody>
+                      {recentQuotes.map((quote) => (
+                        <TableRow 
+                          key={quote._id}
+                          onClick={() => handleQuoteClick(quote._id)}
+                          style={{ cursor: 'pointer' }}
+                          hover
+                        >
+                          <TableCell>{quote.customerName}</TableCell>
+                          <TableCell>${quote.pricingCalculations.totalUpfront.toFixed(2)}</TableCell>
+                          <TableCell>{quote.status}</TableCell>
+                          <TableCell>{quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Typography>No recent quotes.</Typography>
+              )}
+            </Paper>
+          </Grid>
         </Grid>
       )}
 

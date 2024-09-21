@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Paper, Button, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
-import { fetchQuote, createQuote, updateQuote, deleteQuote, fetchCustomers } from '../api/apiService';
-import { Quote } from '../types/Quote';
+import { fetchQuote, updateQuote, deleteQuote, fetchCustomers, createQuote } from '../api/apiService';
+import { Quote, NewQuote } from '../types/Quote';
 import { Customer } from '../types/Customer';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
 import { ErrorMessage } from '../components/shared/ErrorMessage';
@@ -11,7 +11,7 @@ import QuoteForm from '../components/quotes/QuoteForm';
 const QuoteDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quote, setQuote] = useState<Quote | NewQuote | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,15 +21,28 @@ const QuoteDetailsPage: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const customersData = await fetchCustomers();
-        setCustomers(customersData);
-
-        if (id) {
-          const quoteData = await fetchQuote(id);
+        const [quoteData, customersData] = await Promise.all([
+          id ? fetchQuote(id) : Promise.resolve(null),
+          fetchCustomers()
+        ]);
+        if (quoteData) {
           setQuote(quoteData);
-        } else {
+        } else if (!id) {
+          // Initialize a new quote when creating
+          setQuote({
+            customerId: '',
+            customerName: '',
+            rampConfiguration: { components: [], totalLength: 0 },
+            pricingCalculations: { deliveryFee: 0, installFee: 0, monthlyRentalRate: 0, totalUpfront: 0, distance: 0 },
+            status: 'pending',
+            warehouseAddress: '',
+            installAddress: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
           setIsEditing(true);
         }
+        setCustomers(customersData);
       } catch (err: any) {
         setError(err.message || 'Failed to fetch data');
       } finally {
@@ -39,32 +52,26 @@ const QuoteDetailsPage: React.FC = () => {
     loadData();
   }, [id]);
 
-  const handleSave = async (quoteData: Omit<Quote, '_id' | 'createdAt' | 'updatedAt'>): Promise<void> => {
+  const handleSave = async (quoteData: NewQuote) => {
     setIsLoading(true);
     setError(null);
     try {
+      console.log('Saving quote data:', quoteData);
       if (id) {
         const updatedQuote = await updateQuote(id, quoteData);
         setQuote(updatedQuote);
         setIsEditing(false);
       } else {
-        const newQuoteData: Omit<Quote, '_id'> = {
-          ...quoteData,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        await createQuote(newQuoteData);
-        navigate('/quotes');
+        const createdQuote = await createQuote(quoteData);
+        navigate(`/quotes/${createdQuote._id}`);
       }
     } catch (err: any) {
+      console.error('Error saving quote:', err);
       setError(err.message || 'Failed to save quote');
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleEdit = () => setIsEditing(true);
-  const handleCancelEdit = () => setIsEditing(false);
 
   const handleDelete = async () => {
     if (id) {
@@ -92,45 +99,44 @@ const QuoteDetailsPage: React.FC = () => {
         {id ? 'Quote Details' : 'Create New Quote'}
       </Typography>
       <Paper elevation={3} className="p-4">
-        {isEditing || !id ? (
+        {(isEditing || !id) ? (
           <QuoteForm
-            quote={quote}
+            quote={quote as NewQuote}
             customers={customers}
             onSave={handleSave}
-            onCancel={handleCancelEdit}
+            onCancel={() => id ? setIsEditing(false) : navigate('/quotes')}
           />
-        ) : quote ? (
+        ) : quote && '_id' in quote ? (
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <Typography variant="h6">Customer Name</Typography>
-              <Typography>{quote.customerName}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="h6">Total Upfront</Typography>
-              <Typography>${quote.pricingCalculations.totalUpfront.toFixed(2)}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="h6">Monthly Rental Rate</Typography>
-              <Typography>${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</Typography>
+              <Typography variant="h6">Customer: {quote.customerName}</Typography>
+              <Typography>Status: {quote.status}</Typography>
+              <Typography>Total Upfront: ${quote.pricingCalculations.totalUpfront.toFixed(2)}</Typography>
+              <Typography>Monthly Rental Rate: ${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</Typography>
             </Grid>
             <Grid item xs={12}>
               <Typography variant="h6">Ramp Configuration</Typography>
-              <Typography>
-                {quote.rampConfiguration.components.map((component, index) => (
-                  <span key={index}>
-                    {component.type}: {component.length}ft
-                    {component.width ? ` x ${component.width}ft` : ''}
-                    {index < quote.rampConfiguration.components.length - 1 ? ', ' : ''}
-                  </span>
-                ))}
-              </Typography>
+              {quote.rampConfiguration.components.map((component, index) => (
+                <Typography key={index}>
+                  {component.type === 'ramp' ? 'Ramp' : 'Landing'}: 
+                  {component.length}ft x {component.quantity}
+                  {component.width ? ` (${component.width}ft wide)` : ''}
+                </Typography>
+              ))}
+              <Typography>Total Length: {quote.rampConfiguration.totalLength}ft</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="h6">Status</Typography>
-              <Typography>{quote.status}</Typography>
+              <Typography variant="h6">Installation Address</Typography>
+              <Typography>{quote.installAddress}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Button variant="contained" color="primary" onClick={handleEdit} className="mr-2">
+              <Typography variant="h6">Pricing Details</Typography>
+              <Typography>Delivery Fee: ${quote.pricingCalculations.deliveryFee.toFixed(2)}</Typography>
+              <Typography>Install Fee: ${quote.pricingCalculations.installFee.toFixed(2)}</Typography>
+              <Typography>Distance: {quote.pricingCalculations.distance.toFixed(2)} miles</Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Button variant="contained" color="primary" onClick={() => setIsEditing(true)} className="mr-2">
                 Edit
               </Button>
               <Button variant="contained" color="secondary" onClick={() => setIsDeleting(true)}>

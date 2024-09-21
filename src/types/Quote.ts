@@ -24,10 +24,13 @@ export interface Quote {
   _id: string;
   customerId: string;
   customerName: string;
-  rentalRequestId?: string;
   rampConfiguration: RampConfiguration;
   pricingCalculations: PricingCalculations;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   updatedAt: string;
+  warehouseAddress: string;
+  installAddress: string;
 }
+
+export type NewQuote = Omit<Quote, '_id'>;

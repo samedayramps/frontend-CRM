@@ -26,4 +26,5 @@ export interface RentalRequest {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   updatedAt: string;
+  additionalNotes?: string; // Make it optional if it's not always present
 }

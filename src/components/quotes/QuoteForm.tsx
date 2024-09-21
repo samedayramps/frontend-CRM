@@ -1,25 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Grid, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Button, Grid, FormControl, InputLabel, Select, MenuItem, TextField } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { Quote, RampConfiguration } from '../../types/Quote';
 import { Customer } from '../../types/Customer';
 import RampConfigurationComponent from './RampConfiguration';
 import PricingCalculator from './PricingCalculator';
+import { fetchPricingVariables } from '../../api/apiService';
 
 interface QuoteFormProps {
-  quote: Quote | null;
+  quote: Omit<Quote, '_id'> | null;
   customers: Customer[];
-  onSave: (quoteData: Quote) => Promise<void>;
+  onSave: (quoteData: Omit<Quote, '_id'>) => Promise<void>;
   onCancel: () => void;
 }
 
 const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCancel }) => {
-  const [formData, setFormData] = useState<Quote>(() => {
+  const [formData, setFormData] = useState<Omit<Quote, '_id'>>(() => {
     if (quote) {
-      return quote;
+      return {
+        ...quote,
+        customerId: typeof quote.customerId === 'object' ? (quote.customerId as any)._id : quote.customerId,
+        rampConfiguration: {
+          ...quote.rampConfiguration,
+          components: quote.rampConfiguration.components.map(comp => ({
+            ...comp,
+            quantity: comp.quantity || 1
+          }))
+        }
+      };
     } else {
       return {
-        _id: '',
         customerId: '',
         customerName: '',
         rampConfiguration: {
@@ -36,6 +46,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
         status: 'pending',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        warehouseAddress: '',
+        installAddress: '',
       };
     }
   });
@@ -43,9 +55,30 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
+    const fetchWarehouseAddress = async () => {
+      try {
+        const variables = await fetchPricingVariables();
+        setFormData(prev => ({
+          ...prev,
+          warehouseAddress: variables.warehouseAddress,
+        }));
+      } catch (error) {
+        console.error('Failed to fetch warehouse address:', error);
+      }
+    };
+    fetchWarehouseAddress();
+
+    // Set initial customer if quote exists
     if (formData.customerId) {
       const customer = customers.find(c => c._id === formData.customerId);
-      setSelectedCustomer(customer || null);
+      if (customer) {
+        setSelectedCustomer(customer);
+        setFormData(prev => ({
+          ...prev,
+          customerName: `${customer.firstName} ${customer.lastName}`,
+          installAddress: customer.installAddress,
+        }));
+      }
     }
   }, [formData.customerId, customers]);
 
@@ -57,6 +90,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
         ...prev,
         customerId,
         customerName: `${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
+        installAddress: selectedCustomer.installAddress,
       }));
       setSelectedCustomer(selectedCustomer);
     }
@@ -82,7 +116,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
             <InputLabel>Customer</InputLabel>
             <Select
               name="customerId"
-              value={formData.customerId}
+              value={formData.customerId || ''}
               onChange={handleCustomerChange}
             >
               {customers.map((customer) => (
@@ -105,7 +139,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
           <Grid item xs={12}>
             <PricingCalculator
               rampConfiguration={formData.rampConfiguration}
-              customerAddress={selectedCustomer.installAddress}
+              installAddress={formData.installAddress}
             />
           </Grid>
         )}
@@ -123,6 +157,15 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
               <MenuItem value="rejected">Rejected</MenuItem>
             </Select>
           </FormControl>
+        </Grid>
+
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Install Address"
+            value={formData.installAddress || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, installAddress: e.target.value }))}
+          />
         </Grid>
 
         <Grid item xs={12}>

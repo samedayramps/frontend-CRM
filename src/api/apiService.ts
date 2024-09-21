@@ -117,11 +117,15 @@ export const fetchQuote = async (id: string): Promise<Quote> => {
   }
 };
 
-export const createQuote = async (data: Omit<Quote, '_id'>): Promise<Quote> => {
+export const createQuote = async (quoteData: Omit<Quote, '_id'>): Promise<Quote> => {
   try {
-    const response = await apiClient.post<Quote>('/quotes', data);
+    const response = await apiClient.post<Quote>('/quotes', quoteData);
     return response.data;
   } catch (error) {
+    console.error('Error creating quote:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Server response:', error.response.data);
+    }
     throw new Error(handleApiError(error as AxiosError));
   }
 };
@@ -208,11 +212,17 @@ export const updatePricingVariables = async (data: PricingVariables): Promise<Pr
 };
 
 // Calculate Pricing
-export const calculatePricing = async (rampConfiguration: RampConfiguration, customerAddress: string, warehouseAddress: string) => {
+export const calculatePricing = async (data: {
+  rampConfiguration: RampConfiguration;
+  installAddress: string;
+  warehouseAddress: string;
+}) => {
   try {
-    const response = await apiClient.post('/calculate-pricing', { rampConfiguration, customerAddress, warehouseAddress });
+    console.log('Sending to backend:', data);
+    const response = await apiClient.post('/calculate-pricing', data);
     return response.data;
   } catch (error) {
+    console.error('Error in calculatePricing:', error);
     throw new Error(handleApiError(error as AxiosError));
   }
 };
