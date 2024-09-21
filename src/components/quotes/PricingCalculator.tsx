@@ -12,37 +12,41 @@ interface PricingCalculatorProps {
   installAddress: string;
 }
 
+interface PricingResult {
+  deliveryFee: number;
+  installFee: number;
+  monthlyRentalRate: number;
+  totalUpfront: number;
+  distance: number;
+}
+
 const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration, installAddress }) => {
   const [pricingVariables, setPricingVariables] = useState<PricingVariables | null>(null);
-  const [pricing, setPricing] = useState<{
-    deliveryFee: number;
-    installFee: number;
-    monthlyRentalRate: number;
-    totalUpfront: number;
-    distance: number;
-  } | null>(null);
+  const [pricing, setPricing] = useState<PricingResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const debouncedCalculatePrices = useCallback(
-    debounce(async (config: RampConfiguration, address: string, variables: PricingVariables) => {
+    (config: RampConfiguration, address: string, variables: PricingVariables) => {
       setIsLoading(true);
       setError(null);
-      try {
-        const result = await calculatePricing({
-          rampConfiguration: config,
-          installAddress: address,
-          warehouseAddress: variables.warehouseAddress
+      calculatePricing({
+        rampConfiguration: config,
+        installAddress: address,
+        warehouseAddress: variables.warehouseAddress
+      })
+        .then((result) => {
+          setPricing(result);
+        })
+        .catch((err: any) => {
+          console.error('Error calculating pricing:', err);
+          setError('Failed to calculate pricing');
+        })
+        .finally(() => {
+          setIsLoading(false);
         });
-        setPricing(result);
-      } catch (err: any) {
-        console.error('Error calculating pricing:', err);
-        setError('Failed to calculate pricing');
-      } finally {
-        setIsLoading(false);
-      }
-    }, 500),
-    []
+    },
+    [] // Empty dependency array is fine here as we're not using any external values
   );
 
   useEffect(() => {
@@ -79,21 +83,25 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration
     return <Typography>Please configure the ramp to see pricing.</Typography>;
   }
 
+  const pricingItems: [string, string][] = [
+    ['Delivery Fee', `$${pricing.deliveryFee.toFixed(2)}`],
+    ['Install Fee', `$${pricing.installFee.toFixed(2)}`],
+    ['Monthly Rental Rate', `$${pricing.monthlyRentalRate.toFixed(2)}`],
+    ['Total Upfront', `$${pricing.totalUpfront.toFixed(2)}`],
+    ['Distance', `${pricing.distance.toFixed(2)} miles`],
+  ];
+
   return (
     <Paper elevation={3} style={{ padding: '16px', marginTop: '16px' }}>
       <Typography variant="h6" gutterBottom>Pricing Calculation</Typography>
       <Grid container spacing={2}>
-        {Object.entries(pricing).map(([key, value]) => (
-          <React.Fragment key={key}>
+        {pricingItems.map(([label, value]) => (
+          <React.Fragment key={label}>
             <Grid item xs={6}>
-              <Typography>{key.charAt(0).toUpperCase() + key.slice(1)}:</Typography>
+              <Typography>{label}:</Typography>
             </Grid>
             <Grid item xs={6}>
-              <Typography>
-                {typeof value === 'number' ? 
-                  (key === 'distance' ? `${value.toFixed(2)} miles` : `$${value.toFixed(2)}`) : 
-                  value}
-              </Typography>
+              <Typography>{value}</Typography>
             </Grid>
           </React.Fragment>
         ))}
