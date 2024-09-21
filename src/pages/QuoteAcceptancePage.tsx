@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Typography, Paper, Button, CircularProgress } from '@mui/material';
+import { Typography, Paper, Button, CircularProgress, Link } from '@mui/material';
 import { acceptQuote } from '../api/apiService';
 import { ErrorMessage } from '../components/shared/ErrorMessage';
+
+interface AcceptanceResponse {
+  message: string;
+  paymentLink: string;
+  signatureLink: string;
+}
 
 const QuoteAcceptancePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -10,7 +16,7 @@ const QuoteAcceptancePage: React.FC = () => {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [accepted, setAccepted] = useState(false);
+  const [acceptanceData, setAcceptanceData] = useState<AcceptanceResponse | null>(null);
 
   useEffect(() => {
     console.log('QuoteAcceptancePage mounted');
@@ -26,8 +32,8 @@ const QuoteAcceptancePage: React.FC = () => {
       }
 
       try {
-        await acceptQuote(id, token);
-        setAccepted(true);
+        const response = await acceptQuote(id, token);
+        setAcceptanceData(response);
       } catch (err: any) {
         console.error('Error in acceptQuoteWithToken:', err);
         if (err.message.includes('Invalid or expired acceptance token')) {
@@ -73,13 +79,21 @@ const QuoteAcceptancePage: React.FC = () => {
   return (
     <Paper elevation={3} className="p-4">
       <Typography variant="h4" gutterBottom>
-        {accepted ? 'Quote Accepted' : 'Quote Acceptance'}
+        Quote Accepted
       </Typography>
-      {accepted ? (
+      {acceptanceData ? (
         <>
           <Typography>
-            Thank you for accepting the quote. You will receive an email shortly with further instructions
-            for payment and signing the agreement.
+            {acceptanceData.message}
+          </Typography>
+          <Typography variant="h6" gutterBottom className="mt-4">
+            Next Steps:
+          </Typography>
+          <Typography>
+            1. <Link href={acceptanceData.paymentLink} target="_blank" rel="noopener noreferrer">Make your payment</Link>
+          </Typography>
+          <Typography>
+            2. <Link href={acceptanceData.signatureLink} target="_blank" rel="noopener noreferrer">Sign the agreement</Link>
           </Typography>
           <Button
             variant="contained"
@@ -92,7 +106,7 @@ const QuoteAcceptancePage: React.FC = () => {
         </>
       ) : (
         <Typography color="error">
-          There was an issue accepting the quote. Please try again or contact support.
+          There was an issue processing the quote acceptance. Please try again or contact support.
         </Typography>
       )}
     </Paper>

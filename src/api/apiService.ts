@@ -273,11 +273,18 @@ export const sendQuoteEmail = async (quoteId: string): Promise<void> => {
   }
 };
 
-export const acceptQuote = async (quoteId: string, token: string): Promise<void> => {
+interface AcceptanceResponse {
+  message: string;
+  paymentLink: string;
+  signatureLink: string;
+}
+
+export const acceptQuote = async (quoteId: string, token: string): Promise<AcceptanceResponse> => {
   try {
     console.log(`Attempting to accept quote with ID: ${quoteId} and token: ${token}`);
-    const response = await apiClient.get(`/quotes/${quoteId}/accept?token=${token}`);
+    const response = await apiClient.get<AcceptanceResponse>(`/quotes/${quoteId}/accept?token=${token}`);
     console.log('Accept quote response:', response.data);
+    return response.data;
   } catch (error) {
     console.error('Error accepting quote:', error);
     if (axios.isAxiosError(error) && error.response) {

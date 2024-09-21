@@ -34,3 +34,9 @@ export interface Quote {
 }
 
 export type NewQuote = Omit<Quote, '_id'>;
+
+export interface AcceptanceResponse {
+  message: string;
+  paymentLink: string;
+  signatureLink: string;
+}
