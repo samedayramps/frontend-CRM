@@ -30,7 +30,11 @@ const QuoteAcceptancePage: React.FC = () => {
         setAccepted(true);
       } catch (err: any) {
         console.error('Error in acceptQuoteWithToken:', err);
-        setError(err.message || 'Failed to accept quote');
+        if (err.message.includes('Invalid or expired acceptance token')) {
+          setError('The acceptance link has expired. Please contact support for assistance.');
+        } else {
+          setError(err.message || 'Failed to accept quote');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -47,7 +51,7 @@ const QuoteAcceptancePage: React.FC = () => {
       </Typography>
       <ErrorMessage message={error} />
       <Typography variant="body1" gutterBottom>
-        Please try again or contact support with the following information:
+        If you continue to experience issues, please contact our support team with the following information:
       </Typography>
       <Typography variant="body2">
         Quote ID: {id}

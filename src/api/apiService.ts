@@ -282,6 +282,9 @@ export const acceptQuote = async (quoteId: string, token: string): Promise<void>
     console.error('Error accepting quote:', error);
     if (axios.isAxiosError(error) && error.response) {
       console.error('Server response:', error.response.data);
+      if (error.response.status === 401) {
+        throw new Error('Invalid or expired acceptance token');
+      }
     }
     throw new Error(handleApiError(error as AxiosError));
   }
