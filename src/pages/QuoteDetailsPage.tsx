@@ -34,9 +34,15 @@ const QuoteDetailsPage: React.FC = () => {
             customerId: '',
             customerName: '',
             rampConfiguration: { components: [], totalLength: 0 },
-            pricingCalculations: { deliveryFee: 0, installFee: 0, monthlyRentalRate: 0, totalUpfront: 0, distance: 0 },
+            pricingCalculations: {
+              deliveryFee: 0,
+              installFee: 0,
+              monthlyRentalRate: 0,
+              totalUpfront: 0,
+              distance: 0,
+              warehouseAddress: '', // Add this line
+            },
             status: 'draft',
-            warehouseAddress: '',
             installAddress: '',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -173,7 +179,7 @@ const QuoteDetailsPage: React.FC = () => {
                 variant="contained"
                 color="primary"
                 onClick={handleSendQuote}
-                disabled={isSending || quote.status === 'sent'}
+                disabled={isSending || (quote && '_id' in quote && quote.status !== 'draft')}
               >
                 {isSending ? 'Sending...' : 'Send Quote'}
               </Button>

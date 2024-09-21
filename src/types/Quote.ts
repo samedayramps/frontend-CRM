@@ -18,6 +18,7 @@ export interface PricingCalculations {
   monthlyRentalRate: number;
   totalUpfront: number;
   distance: number;
+  warehouseAddress: string;
 }
 
 export interface Quote {
@@ -26,10 +27,9 @@ export interface Quote {
   customerName: string;
   rampConfiguration: RampConfiguration;
   pricingCalculations: PricingCalculations;
-  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed' | 'pending';
+  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
   createdAt: string;
   updatedAt: string;
-  warehouseAddress: string;
   installAddress: string;
 }
 

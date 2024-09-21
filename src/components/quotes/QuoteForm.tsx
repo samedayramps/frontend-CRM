@@ -42,11 +42,11 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
           monthlyRentalRate: 0,
           totalUpfront: 0,
           distance: 0,
+          warehouseAddress: '', // Add this line
         },
         status: 'draft' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        warehouseAddress: '',
         installAddress: '',
       };
     }
@@ -152,9 +152,11 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
               value={formData.status}
               onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as Quote['status'] }))}
             >
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="approved">Approved</MenuItem>
-              <MenuItem value="rejected">Rejected</MenuItem>
+              <MenuItem value="draft">Draft</MenuItem>
+              <MenuItem value="sent">Sent</MenuItem>
+              <MenuItem value="accepted">Accepted</MenuItem>
+              <MenuItem value="paid">Paid</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
             </Select>
           </FormControl>
         </Grid>
