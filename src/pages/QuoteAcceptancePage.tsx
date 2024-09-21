@@ -13,9 +13,12 @@ const QuoteAcceptancePage: React.FC = () => {
   const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
+    console.log('QuoteAcceptancePage mounted');
     const acceptQuoteWithToken = async () => {
+      console.log('Accepting quote...');
       const searchParams = new URLSearchParams(location.search);
       const token = searchParams.get('token');
+      console.log('ID:', id, 'Token:', token);
       if (!id || !token) {
         setError('Invalid quote ID or token');
         setIsLoading(false);
@@ -46,8 +49,8 @@ const QuoteAcceptancePage: React.FC = () => {
       {accepted ? (
         <>
           <Typography>
-            Thank you for accepting the quote. You will receive further instructions
-            for payment and signing the agreement via email shortly.
+            Thank you for accepting the quote. You will receive an email shortly with further instructions
+            for payment and signing the agreement.
           </Typography>
           <Button
             variant="contained"

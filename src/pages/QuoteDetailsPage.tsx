@@ -98,17 +98,33 @@ const QuoteDetailsPage: React.FC = () => {
 
   const handleSendQuote = async () => {
     if (id) {
+      console.log(`Attempting to send quote with ID: ${id}`);
       setIsSending(true);
       setError(null);
       try {
+        console.log('Calling sendQuoteEmail API...');
         await sendQuoteEmail(id);
+        console.log('Quote email sent successfully');
+        
         // Update the quote status locally
-        setQuote(prevQuote => prevQuote ? { ...prevQuote, status: 'sent' } : null);
+        setQuote(prevQuote => {
+          if (prevQuote) {
+            console.log(`Updating quote status from ${prevQuote.status} to 'sent'`);
+            return { ...prevQuote, status: 'sent' };
+          }
+          return null;
+        });
+        
+        console.log('Quote status updated locally');
       } catch (err: any) {
+        console.error('Error in handleSendQuote:', err);
         setError(err.message || 'Failed to send quote email');
       } finally {
         setIsSending(false);
+        console.log('Send quote process completed');
       }
+    } else {
+      console.warn('Attempted to send quote without a valid ID');
     }
   };
 

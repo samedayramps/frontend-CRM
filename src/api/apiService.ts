@@ -275,7 +275,7 @@ export const sendQuoteEmail = async (quoteId: string): Promise<void> => {
 
 export const acceptQuote = async (quoteId: string, token: string): Promise<void> => {
   try {
-    await apiClient.post(`/quotes/${quoteId}/accept`, { token });
+    await apiClient.get(`/quotes/${quoteId}/accept?token=${token}`);
   } catch (error) {
     throw new Error(handleApiError(error as AxiosError));
   }
