@@ -42,9 +42,11 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
           monthlyRentalRate: 0,
           totalUpfront: 0,
           distance: 0,
-          warehouseAddress: '', // Add this line
+          warehouseAddress: '',
         },
         status: 'draft' as const,
+        paymentStatus: 'pending' as const,
+        agreementStatus: 'pending' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         installAddress: '',

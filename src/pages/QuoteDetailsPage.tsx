@@ -40,9 +40,11 @@ const QuoteDetailsPage: React.FC = () => {
               monthlyRentalRate: 0,
               totalUpfront: 0,
               distance: 0,
-              warehouseAddress: '', // Add this line
+              warehouseAddress: '',
             },
             status: 'draft',
+            paymentStatus: 'pending',
+            agreementStatus: 'pending',
             installAddress: '',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -128,6 +130,12 @@ const QuoteDetailsPage: React.FC = () => {
     }
   };
 
+  const renderStatus = (label: string, status: string) => (
+    <Typography>
+      <strong>{label}:</strong> {status.charAt(0).toUpperCase() + status.slice(1)}
+    </Typography>
+  );
+
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
   if (!quote && id) return <ErrorMessage message="Quote not found" />;
@@ -149,7 +157,9 @@ const QuoteDetailsPage: React.FC = () => {
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Typography variant="h6">Customer: {quote.customerName}</Typography>
-              <Typography>Status: {quote.status}</Typography>
+              {renderStatus('Quote Status', quote.status)}
+              {renderStatus('Payment Status', quote.paymentStatus)}
+              {renderStatus('Agreement Status', quote.agreementStatus)}
               <Typography>Total Upfront: ${quote.pricingCalculations.totalUpfront.toFixed(2)}</Typography>
               <Typography>Monthly Rental Rate: ${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</Typography>
             </Grid>

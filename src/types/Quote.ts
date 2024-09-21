@@ -25,12 +25,19 @@ export interface Quote {
   _id: string;
   customerId: string;
   customerName: string;
+  rentalRequestId?: string;
   rampConfiguration: RampConfiguration;
   pricingCalculations: PricingCalculations;
   status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
   createdAt: string;
   updatedAt: string;
   installAddress: string;
+  manualSignature?: string;
+  signatureDate?: string;
+  paymentStatus: 'pending' | 'processing' | 'paid' | 'failed';
+  paymentIntentId?: string;
+  agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
+  agreementId?: string;
 }
 
 export type NewQuote = Omit<Quote, '_id'>;
