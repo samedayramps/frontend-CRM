@@ -29,6 +29,7 @@ const QuoteAcceptancePage: React.FC = () => {
         await acceptQuote(id, token);
         setAccepted(true);
       } catch (err: any) {
+        console.error('Error in acceptQuoteWithToken:', err);
         setError(err.message || 'Failed to accept quote');
       } finally {
         setIsLoading(false);
@@ -39,7 +40,31 @@ const QuoteAcceptancePage: React.FC = () => {
   }, [id, location.search]);
 
   if (isLoading) return <CircularProgress />;
-  if (error) return <ErrorMessage message={error} />;
+  if (error) return (
+    <Paper elevation={3} className="p-4">
+      <Typography variant="h4" gutterBottom color="error">
+        Error Accepting Quote
+      </Typography>
+      <ErrorMessage message={error} />
+      <Typography variant="body1" gutterBottom>
+        Please try again or contact support with the following information:
+      </Typography>
+      <Typography variant="body2">
+        Quote ID: {id}
+      </Typography>
+      <Typography variant="body2">
+        Error Time: {new Date().toISOString()}
+      </Typography>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={() => navigate('/')}
+        className="mt-4"
+      >
+        Return to Home
+      </Button>
+    </Paper>
+  );
 
   return (
     <Paper elevation={3} className="p-4">
