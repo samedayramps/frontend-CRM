@@ -1,0 +1,253 @@
+# Ramp Rental API Documentation
+
+## Endpoints
+
+### Quotes
+
+#### GET /api/quotes
+- Description: Retrieve all quotes
+- Response: Array of Quote objects
+
+#### GET /api/quotes/:id
+- Description: Retrieve a specific quote
+- Parameters: 
+  - id: Quote ID
+- Response: Quote object
+
+#### POST /api/quotes
+- Description: Create a new quote
+- Request Body:
+  - customerId: Customer ID
+  - rentalRequestId (optional): Rental Request ID
+  - rampConfiguration:
+    - components: Array of ramp component names
+    - totalLength: Total length of the ramp
+    - rentalDuration: Duration of the rental in months
+- Response: Created Quote object
+
+#### PUT /api/quotes/:id
+- Description: Update an existing quote
+- Parameters:
+  - id: Quote ID
+- Request Body:
+  - rampConfiguration: Updated ramp configuration
+  - pricingCalculations: Updated pricing calculations
+- Response: Updated Quote object
+
+#### DELETE /api/quotes/:id
+- Description: Delete a quote
+- Parameters:
+  - id: Quote ID
+- Response: Success message
+
+### Customers
+
+#### GET /api/customers
+- Description: Retrieve all customers
+- Response: Array of Customer objects
+
+#### GET /api/customers/:id
+- Description: Retrieve a specific customer
+- Parameters:
+  - id: Customer ID
+- Response: Customer object
+
+#### POST /api/customers
+- Description: Create a new customer
+- Request Body: Customer data (firstName, lastName, phone, email, installAddress, mobilityAids, preferredContactMethod, notes)
+- Response: Created Customer object
+
+#### PUT /api/customers/:id
+- Description: Update an existing customer
+- Parameters:
+  - id: Customer ID
+- Request Body: Updated customer data
+- Response: Updated Customer object
+
+#### POST /api/customers/from-rental-request/:rentalRequestId
+- Description: Create a customer from a rental request
+- Parameters:
+  - rentalRequestId: Rental Request ID
+- Response: Created Customer object
+
+#### DELETE /api/customers/:id
+- Description: Delete a customer
+- Parameters:
+  - id: Customer ID
+- Response: Success message
+
+### Rental Requests
+
+#### GET /api/rental-requests
+- Description: Retrieve all rental requests
+- Response: Array of RentalRequest objects
+
+#### GET /api/rental-requests/:id
+- Description: Retrieve a specific rental request
+- Parameters:
+  - id: Rental Request ID
+- Response: RentalRequest object
+
+#### POST /api/rental-requests
+- Description: Create a new rental request
+- Request Body: Rental request data (customerInfo, rampDetails, installAddress)
+- Response: Created RentalRequest object
+
+#### PUT /api/rental-requests/:id
+- Description: Update an existing rental request
+- Parameters:
+  - id: Rental Request ID
+- Request Body: Updated rental request data
+- Response: Updated RentalRequest object
+
+### Pricing Variables
+
+#### GET /api/pricing-variables
+- Description: Retrieve the latest pricing variables
+- Response: PricingVariables object
+
+#### POST /api/pricing-variables
+- Description: Create new pricing variables
+- Request Body: Pricing variable data (baseDeliveryFee, deliveryFeePerMile, baseInstallFee, installFeePerComponent, monthlyRentalRatePerFt)
+- Response: Created PricingVariables object
+
+#### PUT /api/pricing-variables/:id
+- Description: Update existing pricing variables
+- Parameters:
+  - id: Pricing Variables ID
+- Request Body: Updated pricing variable data
+- Response: Updated PricingVariables object
+
+### Payments
+
+#### POST /api/payments/create-link
+- Description: Create a payment link for a quote
+- Request Body:
+  - quoteId: Quote ID
+- Response: Payment link URL and PaymentIntent ID
+
+#### GET /api/payments/status/:paymentIntentId
+- Description: Check the status of a payment
+- Parameters:
+  - paymentIntentId: Stripe PaymentIntent ID
+- Response: Payment status, amount, and associated Quote ID
+
+### E-Signatures
+
+#### POST /api/esignatures/send
+- Description: Send an e-signature request
+- Request Body:
+  - templateId: E-signature template ID
+  - signers: Array of signer objects (name, email)
+  - metadata (optional): Additional metadata
+  - placeholderFields (optional): Array of placeholder field objects (api_key, value)
+- Response: E-signature request result
+
+#### GET /api/esignatures/status/:contractId
+- Description: Check the status of an e-signature request
+- Parameters:
+  - contractId: E-signature contract ID
+- Response: E-signature status
+
+
+# Pricing Calculation Logic
+
+The pricing calculation for ramp rentals is performed in the `calculatePricing` function in `src/services/pricingService.ts`. Here's a breakdown of the calculation:
+
+1. Retrieve the latest pricing variables from the database.
+2. Calculate the distance between the company address and the customer's address using the Google Maps Distance Matrix API.
+3. Calculate the delivery fee:
+   - deliveryFee = baseDeliveryFee + (deliveryFeePerMile * distance)
+4. Calculate the installation fee:
+   - installFee = baseInstallFee + (installFeePerComponent * number of ramp components)
+5. Calculate the monthly rental rate:
+   - monthlyRentalRate = monthlyRentalRatePerFt * total ramp length
+6. Calculate the total rental cost:
+   - totalRentalCost = monthlyRentalRate * rental duration (in months)
+7. Calculate the total amount:
+   - totalAmount = deliveryFee + installFee + totalRentalCost
+
+The function returns an object containing all these calculated values, along with the distance and rental duration.
+
+Note: All pricing variables (baseDeliveryFee, deliveryFeePerMile, baseInstallFee, installFeePerComponent, monthlyRentalRatePerFt) are stored in the database and can be updated through the Pricing Variables API endpoints.
+
+
+# Ramp Rental Backend Documentation
+
+## Project Structure
+
+The backend is structured as follows:
+
+- `src/`
+  - `models/`: MongoDB schemas and models
+  - `routes/`: Express route handlers
+  - `services/`: Business logic and external service integrations
+  - `utils/`: Utility functions and custom error classes
+  - `middlewares/`: Custom middleware functions
+  - `app.ts`: Express app configuration
+  - `index.ts`: Server entry point
+
+## Key Components
+
+### Models
+
+- `Customer`: Stores customer information
+- `RentalRequest`: Represents a rental request from a customer
+- `Quote`: Stores quote information, including pricing calculations
+- `PricingVariables`: Stores configurable pricing variables
+
+### Routes
+
+- `customers.ts`: Handles customer-related operations
+- `rentalRequests.ts`: Manages rental request operations
+- `quotes.ts`: Handles quote creation, retrieval, and management
+- `pricingVariables.ts`: Manages pricing variable operations
+- `payments.ts`: Handles payment-related operations using Stripe
+- `esignatures.ts`: Manages e-signature operations using eSignatures.io
+
+### Services
+
+- `pricingService.ts`: Calculates pricing based on ramp configuration and distance
+- `distanceCalculation.ts`: Calculates distance using Google Maps API
+- `EsignatureService.ts`: Handles communication with eSignatures.io API
+
+### Utils
+
+- `CustomError.ts`: Custom error class for consistent error handling
+- `validationRules.ts`: Input validation rules for various endpoints
+
+## Key Features
+
+1. **Dynamic Pricing**: Prices are calculated based on ramp configuration, rental duration, and delivery distance.
+2. **Customer Management**: Create, update, and manage customer information.
+3. **Quote Generation**: Generate quotes based on rental requests and customer information.
+4. **Payment Integration**: Create payment links and check payment status using Stripe.
+5. **E-Signature Integration**: Send e-signature requests and check their status using eSignatures.io.
+6. **Input Validation**: Comprehensive input validation for all endpoints using express-validator.
+7. **Error Handling**: Consistent error handling and reporting using a custom error class.
+
+## Environment Variables
+
+The following environment variables need to be set:
+
+- `MONGODB_URI`: MongoDB connection string
+- `STRIPE_SECRET_KEY`: Stripe API secret key
+- `ESIGNATURES_IO_TOKEN`: eSignatures.io API token
+- `GOOGLE_MAPS_API_KEY`: Google Maps API key for distance calculation
+- `COMPANY_ADDRESS`: Company address for distance calculation
+- `FRONTEND_URL`: URL of the frontend application (for payment success redirect)
+- `NOTIFICATION_EMAIL`: Email address to receive rental request notifications
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up environment variables in a `.env` file
+4. Start the development server: `npm run dev`
+5. Run tests: `npm test`
+6. Build for production: `npm run build`
+7. Start production server: `npm start`
+
+## API Documentation
+
+Refer to the API documentation for detailed information on available endpoints and their usage.
