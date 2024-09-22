@@ -1,8 +1,8 @@
 // src/components/quotes/RampConfiguration.tsx
 
-import React from 'react';
-import { Button, Grid, Select, MenuItem, IconButton, Typography, TextField } from '@mui/material';
-import { Delete } from '@mui/icons-material';
+import React, { useState, useEffect } from 'react';
+import { Button, Grid, Typography, IconButton, Paper } from '@mui/material';
+import { Remove } from '@mui/icons-material';
 import { RampConfiguration, RampComponent } from '../../types/Quote';
 
 interface RampConfigurationComponentProps {
@@ -18,96 +18,89 @@ const landingOptions = [
 ];
 
 const RampConfigurationComponent: React.FC<RampConfigurationComponentProps> = ({ configuration, onChange }) => {
-  const addComponent = (type: 'ramp' | 'landing') => {
-    const newComponent: RampComponent = type === 'ramp' 
-      ? { type: 'ramp', length: 4, quantity: 1 } 
-      : { type: 'landing', length: 5, width: 4, quantity: 1 };
-    const newComponents = [...configuration.components, newComponent];
-    updateConfiguration(newComponents);
-  };
+  const [components, setComponents] = useState<RampComponent[]>(configuration.components);
 
-  const updateComponent = (index: number, field: string, value: any) => {
-    const newComponents = configuration.components.map((comp, i) => 
-      i === index ? { ...comp, [field]: value } : comp
+  useEffect(() => {
+    const totalLength = components.reduce((sum, comp) => sum + (comp.length * comp.quantity), 0);
+    onChange({ components, totalLength });
+  }, [components, onChange]);
+
+  const addComponent = (type: 'ramp' | 'landing', length: number, width?: number) => {
+    const existingIndex = components.findIndex(c => 
+      c.type === type && c.length === length && c.width === width
     );
-    updateConfiguration(newComponents);
+
+    if (existingIndex !== -1) {
+      const updatedComponents = [...components];
+      updatedComponents[existingIndex].quantity += 1;
+      setComponents(updatedComponents);
+    } else {
+      setComponents([...components, { type, length, width, quantity: 1 }]);
+    }
   };
 
   const removeComponent = (index: number) => {
-    const newComponents = configuration.components.filter((_, i) => i !== index);
-    updateConfiguration(newComponents);
-  };
-
-  const updateConfiguration = (components: RampComponent[]) => {
-    const totalLength = components.reduce((sum, comp) => sum + (comp.length * (comp.quantity || 1)), 0);
-    onChange({ components, totalLength });
+    const updatedComponents = [...components];
+    if (updatedComponents[index].quantity > 1) {
+      updatedComponents[index].quantity -= 1;
+    } else {
+      updatedComponents.splice(index, 1);
+    }
+    setComponents(updatedComponents);
   };
 
   return (
-    <div>
+    <Paper elevation={3} style={{ padding: '16px', marginBottom: '16px' }}>
       <Typography variant="h6" gutterBottom>Ramp Configuration</Typography>
-      {configuration.components.map((component, index) => (
-        <Grid container spacing={2} key={index} alignItems="center">
-          <Grid item xs={2}>
-            <Select
-              value={component.type}
-              onChange={(e) => updateComponent(index, 'type', e.target.value)}
-              fullWidth
+      
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        {rampOptions.map(length => (
+          <Grid item key={`ramp-${length}`}>
+            <Button
+              variant="outlined"
+              onClick={() => addComponent('ramp', length)}
+              sx={{ minWidth: '100px' }}
             >
-              <MenuItem value="ramp">Ramp</MenuItem>
-              <MenuItem value="landing">Landing</MenuItem>
-            </Select>
+              {length}ft Ramp
+            </Button>
           </Grid>
-          <Grid item xs={3}>
-            <Select
-              value={component.type === 'ramp' ? component.length : `${component.length}x${component.width}`}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (component.type === 'ramp') {
-                  updateComponent(index, 'length', Number(value));
-                } else {
-                  const [length, width] = (value as string).split('x').map(Number);
-                  updateComponent(index, 'length', length);
-                  updateComponent(index, 'width', width);
-                }
-              }}
-              fullWidth
+        ))}
+        {landingOptions.map(({ length, width }) => (
+          <Grid item key={`landing-${length}x${width}`}>
+            <Button
+              variant="outlined"
+              onClick={() => addComponent('landing', length, width)}
+              sx={{ minWidth: '100px' }}
             >
-              {component.type === 'ramp'
-                ? rampOptions.map(length => (
-                    <MenuItem key={length} value={length}>{length} ft</MenuItem>
-                  ))
-                : landingOptions.map(({ length, width }) => (
-                    <MenuItem key={`${length}x${width}`} value={`${length}x${width}`}>{length}x{width} ft</MenuItem>
-                  ))
-              }
-            </Select>
+              {length}x{width} Landing
+            </Button>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Typography variant="subtitle1" gutterBottom>Added Components:</Typography>
+      {components.map((component, index) => (
+        <Grid container alignItems="center" key={index} sx={{ mb: 1 }}>
+          <Grid item xs={10}>
+            <Typography>
+              {component.type === 'ramp' 
+                ? `${component.length}ft Ramp` 
+                : `${component.length}x${component.width} Landing`} 
+              (x{component.quantity})
+            </Typography>
           </Grid>
           <Grid item xs={2}>
-            <TextField
-              type="number"
-              label="Quantity"
-              value={component.quantity || 1}
-              onChange={(e) => updateComponent(index, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
-              inputProps={{ min: 1 }}
-              fullWidth
-            />
-          </Grid>
-          <Grid item>
-            <IconButton onClick={() => removeComponent(index)}>
-              <Delete />
+            <IconButton onClick={() => removeComponent(index)} size="small">
+              <Remove />
             </IconButton>
           </Grid>
         </Grid>
       ))}
-      <Button onClick={() => addComponent('ramp')} variant="outlined" style={{ marginTop: 10, marginRight: 10 }}>
-        Add Ramp
-      </Button>
-      <Button onClick={() => addComponent('landing')} variant="outlined" style={{ marginTop: 10 }}>
-        Add Landing
-      </Button>
-      <Typography style={{ marginTop: 10 }}>Total Length: {configuration.totalLength} ft</Typography>
-    </div>
+
+      <Typography variant="h6" sx={{ mt: 2 }}>
+        Total Length: {configuration.totalLength} ft
+      </Typography>
+    </Paper>
   );
 };
 

@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Grid, FormControl, InputLabel, Select, MenuItem, TextField } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Button, Grid, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { Quote, RampConfiguration } from '../../types/Quote';
 import { Customer } from '../../types/Customer';
 import RampConfigurationComponent from './RampConfiguration';
 import PricingCalculator from './PricingCalculator';
-import { fetchPricingVariables } from '../../api/apiService';
+import CustomerInfoDisplay from './CustomerInfoDisplay';
+import { fetchPricingVariables, calculatePricing } from '../../api/apiService';
 
 interface QuoteFormProps {
   quote: Omit<Quote, '_id'> | null;
@@ -55,6 +56,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
   });
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [distance, setDistance] = useState<number>(0);
 
   useEffect(() => {
     const fetchWarehouseAddress = async () => {
@@ -62,7 +64,10 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
         const variables = await fetchPricingVariables();
         setFormData(prev => ({
           ...prev,
-          warehouseAddress: variables.warehouseAddress,
+          pricingCalculations: {
+            ...prev.pricingCalculations,
+            warehouseAddress: variables.warehouseAddress,
+          },
         }));
       } catch (error) {
         console.error('Failed to fetch warehouse address:', error);
@@ -84,29 +89,60 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
     }
   }, [formData.customerId, customers]);
 
-  const handleCustomerChange = (e: SelectChangeEvent<string>) => {
+  useEffect(() => {
+    console.log('Current form data:', formData);
+  }, [formData]);
+
+  const handleCustomerChange = async (e: SelectChangeEvent<string>) => {
     const customerId = e.target.value;
-    const selectedCustomer = customers.find((c) => c._id === customerId);
-    if (selectedCustomer) {
+    const selected = customers.find((c) => c._id === customerId);
+    if (selected) {
       setFormData((prev) => ({
         ...prev,
         customerId,
-        customerName: `${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
-        installAddress: selectedCustomer.installAddress,
+        customerName: `${selected.firstName} ${selected.lastName}`,
+        installAddress: selected.installAddress,
       }));
-      setSelectedCustomer(selectedCustomer);
+      setSelectedCustomer(selected);
+      
+      // Calculate distance and pricing
+      if (selected.installAddress && formData.pricingCalculations.warehouseAddress) {
+        try {
+          const pricingResult = await calculatePricing({
+            rampConfiguration: formData.rampConfiguration,
+            installAddress: selected.installAddress,
+            warehouseAddress: formData.pricingCalculations.warehouseAddress,
+          });
+          setDistance(pricingResult.distance);
+          setFormData(prev => ({
+            ...prev,
+            pricingCalculations: {
+              ...prev.pricingCalculations,
+              ...pricingResult,
+            },
+          }));
+        } catch (error) {
+          console.error('Error calculating distance:', error);
+        }
+      }
     }
   };
 
-  const handleRampConfigChange = (newConfig: RampConfiguration) => {
+  const handleRampConfigChange = useCallback((newConfig: RampConfiguration) => {
     setFormData(prev => ({
       ...prev,
       rampConfiguration: newConfig,
     }));
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.installAddress || !formData.pricingCalculations.warehouseAddress) {
+      console.error('Install address or warehouse address is missing');
+      // You might want to show an error message to the user here
+      return;
+    }
+    console.log('Submitting form data:', formData);
     await onSave(formData);
   };
 
@@ -130,6 +166,12 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
           </FormControl>
         </Grid>
 
+        {selectedCustomer && (
+          <Grid item xs={12}>
+            <CustomerInfoDisplay customer={selectedCustomer} distance={distance} />
+          </Grid>
+        )}
+
         <Grid item xs={12}>
           <RampConfigurationComponent
             configuration={formData.rampConfiguration}
@@ -140,8 +182,10 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
         {selectedCustomer && formData.rampConfiguration.components.length > 0 && (
           <Grid item xs={12}>
             <PricingCalculator
+              key={`${formData.rampConfiguration.totalLength}-${formData.installAddress}`}
               rampConfiguration={formData.rampConfiguration}
               installAddress={formData.installAddress}
+              distance={distance}
             />
           </Grid>
         )}
@@ -164,15 +208,6 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
         </Grid>
 
         <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Install Address"
-            value={formData.installAddress || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, installAddress: e.target.value }))}
-          />
-        </Grid>
-
-        <Grid item xs={12}>
           <Button type="submit" variant="contained" color="primary">
             Save
           </Button>
@@ -185,4 +220,4 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
   );
 };
 
-export default QuoteForm;
+export default React.memo(QuoteForm);

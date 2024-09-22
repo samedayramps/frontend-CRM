@@ -71,7 +71,9 @@ const QuoteDetailsPage: React.FC = () => {
         setQuote(updatedQuote);
         setIsEditing(false);
       } else {
+        console.log('Creating new quote with data:', quoteData);
         const createdQuote = await createQuote(quoteData);
+        console.log('New quote created:', createdQuote);
         navigate(`/quotes/${createdQuote._id}`);
       }
     } catch (err: any) {

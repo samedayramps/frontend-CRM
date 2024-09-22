@@ -119,7 +119,14 @@ export const fetchQuote = async (id: string): Promise<Quote> => {
 
 export const createQuote = async (quoteData: Omit<Quote, '_id'>): Promise<Quote> => {
   try {
-    const response = await apiClient.post<Quote>('/quotes', quoteData);
+    // Ensure installAddress and warehouseAddress are explicitly included
+    const requestData = {
+      ...quoteData,
+      installAddress: quoteData.installAddress,
+      warehouseAddress: quoteData.pricingCalculations.warehouseAddress,
+    };
+    console.log('Sending quote data to backend:', requestData);
+    const response = await apiClient.post<Quote>('/quotes', requestData);
     return response.data;
   } catch (error) {
     console.error('Error creating quote:', error);

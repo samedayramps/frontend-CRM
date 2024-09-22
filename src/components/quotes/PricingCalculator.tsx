@@ -1,7 +1,7 @@
 // src/components/quotes/PricingCalculator.tsx
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Typography, Paper, Grid, CircularProgress } from '@mui/material';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Typography, Paper, Grid, CircularProgress, Divider } from '@mui/material';
 import { RampConfiguration } from '../../types/Quote';
 import { PricingVariables } from '../../types/Pricing';
 import { calculatePricing, fetchPricingVariables } from '../../api/apiService';
@@ -10,6 +10,7 @@ import debounce from 'lodash/debounce';
 interface PricingCalculatorProps {
   rampConfiguration: RampConfiguration;
   installAddress: string;
+  distance: number;
 }
 
 interface PricingResult {
@@ -20,33 +21,34 @@ interface PricingResult {
   distance: number;
 }
 
-const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration, installAddress }) => {
+const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration, installAddress, distance }) => {
   const [pricingVariables, setPricingVariables] = useState<PricingVariables | null>(null);
   const [pricing, setPricing] = useState<PricingResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const debouncedCalculatePrices = useMemo(
-    () => debounce((config: RampConfiguration, address: string, variables: PricingVariables) => {
-      setIsLoading(true);
-      setError(null);
-      calculatePricing({
+  const calculatePrices = useCallback(async (config: RampConfiguration, address: string, variables: PricingVariables) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await calculatePricing({
         rampConfiguration: config,
         installAddress: address,
         warehouseAddress: variables.warehouseAddress
-      })
-        .then((result) => {
-          setPricing(result);
-        })
-        .catch((err: any) => {
-          console.error('Error calculating pricing:', err);
-          setError('Failed to calculate pricing');
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    }, 500),
-    [setIsLoading, setError, setPricing]
+      });
+      console.log('Pricing calculation result:', result);
+      setPricing(result);
+    } catch (err: any) {
+      console.error('Error calculating pricing:', err);
+      setError('Failed to calculate pricing');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const debouncedCalculatePrices = useMemo(
+    () => debounce(calculatePrices, 500),
+    [calculatePrices]
   );
 
   useEffect(() => {
@@ -65,6 +67,7 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration
 
   useEffect(() => {
     if (pricingVariables && installAddress && rampConfiguration.components.length > 0) {
+      console.log('Calculating prices with:', { rampConfiguration, installAddress, pricingVariables });
       debouncedCalculatePrices(rampConfiguration, installAddress, pricingVariables);
     } else {
       setIsLoading(false);
@@ -72,39 +75,72 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration
   }, [rampConfiguration, installAddress, pricingVariables, debouncedCalculatePrices]);
 
   if (isLoading) {
-    return <CircularProgress />;
+    return (
+      <Paper elevation={3} style={{ padding: '16px', marginTop: '16px' }}>
+        <CircularProgress />
+      </Paper>
+    );
   }
 
   if (error) {
-    return <Typography color="error">{error}</Typography>;
+    return (
+      <Paper elevation={3} style={{ padding: '16px', marginTop: '16px' }}>
+        <Typography color="error">{error}</Typography>
+      </Paper>
+    );
   }
 
   if (!pricing) {
-    return <Typography>Please configure the ramp to see pricing.</Typography>;
+    return (
+      <Paper elevation={3} style={{ padding: '16px', marginTop: '16px' }}>
+        <Typography>Please configure the ramp to see pricing.</Typography>
+      </Paper>
+    );
   }
-
-  const pricingItems: [string, string][] = [
-    ['Delivery Fee', `$${pricing.deliveryFee.toFixed(2)}`],
-    ['Install Fee', `$${pricing.installFee.toFixed(2)}`],
-    ['Monthly Rental Rate', `$${pricing.monthlyRentalRate.toFixed(2)}`],
-    ['Total Upfront', `$${pricing.totalUpfront.toFixed(2)}`],
-    ['Distance', `${pricing.distance.toFixed(2)} miles`],
-  ];
 
   return (
     <Paper elevation={3} style={{ padding: '16px', marginTop: '16px' }}>
-      <Typography variant="h6" gutterBottom>Pricing Calculation</Typography>
+      <Typography variant="h6" gutterBottom>Pricing Details</Typography>
       <Grid container spacing={2}>
-        {pricingItems.map(([label, value]) => (
-          <React.Fragment key={label}>
-            <Grid item xs={6}>
-              <Typography>{label}:</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Typography>{value}</Typography>
-            </Grid>
-          </React.Fragment>
-        ))}
+        <Grid item xs={12}>
+          <Typography variant="h6" fontWeight="bold">
+            Monthly Rental Rate: ${pricing.monthlyRentalRate.toFixed(2)}
+          </Typography>
+        </Grid>
+        <Grid item xs={12}>
+          <Typography variant="h6" fontWeight="bold">
+            Total Upfront Cost: ${pricing.totalUpfront.toFixed(2)}
+          </Typography>
+        </Grid>
+        <Grid item xs={12}>
+          <Divider />
+        </Grid>
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" color="textSecondary">
+            Upfront Cost Breakdown:
+          </Typography>
+        </Grid>
+        <Grid item xs={6}>
+          <Typography variant="body2" color="textSecondary">Delivery Fee:</Typography>
+        </Grid>
+        <Grid item xs={6}>
+          <Typography variant="body2">${pricing.deliveryFee.toFixed(2)}</Typography>
+        </Grid>
+        <Grid item xs={6}>
+          <Typography variant="body2" color="textSecondary">Install Fee:</Typography>
+        </Grid>
+        <Grid item xs={6}>
+          <Typography variant="body2">${pricing.installFee.toFixed(2)}</Typography>
+        </Grid>
+        <Grid item xs={12}>
+          <Divider />
+        </Grid>
+        <Grid item xs={6}>
+          <Typography variant="body2">Distance:</Typography>
+        </Grid>
+        <Grid item xs={6}>
+          <Typography variant="body2">{distance.toFixed(2)} miles</Typography>
+        </Grid>
       </Grid>
     </Paper>
   );

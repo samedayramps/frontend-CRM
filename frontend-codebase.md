@@ -112,6 +112,7 @@ module.exports = {
     ]
   },
   "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@types/lodash": "^4.17.7",
     "@types/node": "^22.5.5",
     "autoprefixer": "^10.4.20",
@@ -607,6 +608,7 @@ import RentalRequestsPage from './pages/RentalRequestsPage';
 import RentalRequestDetailsPage from './pages/RentalRequestDetailsPage';
 import QuotesPage from './pages/QuotesPage';
 import QuoteDetailsPage from './pages/QuoteDetailsPage';
+import QuoteAcceptancePage from './pages/QuoteAcceptancePage';
 import CustomersPage from './pages/CustomersPage';
 import CustomerDetailsPage from './pages/CustomerDetailsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -644,6 +646,7 @@ const App: React.FC = () => {
             <Route path="/quotes" element={<QuotesPage />} />
             <Route path="/quotes/:id" element={<QuoteDetailsPage />} />
             <Route path="/quotes/new" element={<QuoteDetailsPage />} />
+            <Route path="/quotes/:id/accept" element={<QuoteAcceptancePage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/customers/new" element={<CustomerDetailsPage />} />
             <Route path="/customers/:id" element={<CustomerDetailsPage />} />
@@ -892,22 +895,35 @@ export interface PricingCalculations {
   monthlyRentalRate: number;
   totalUpfront: number;
   distance: number;
+  warehouseAddress: string;
 }
 
 export interface Quote {
   _id: string;
   customerId: string;
   customerName: string;
+  rentalRequestId?: string;
   rampConfiguration: RampConfiguration;
   pricingCalculations: PricingCalculations;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
   createdAt: string;
   updatedAt: string;
-  warehouseAddress: string;
   installAddress: string;
+  manualSignature?: string;
+  signatureDate?: string;
+  paymentStatus: 'pending' | 'processing' | 'paid' | 'failed';
+  paymentIntentId?: string;
+  agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
+  agreementId?: string;
 }
 
 export type NewQuote = Omit<Quote, '_id'>;
+
+export interface AcceptanceResponse {
+  message: string;
+  paymentLink: string;
+  signatureLink: string;
+}
 ```
 
 # src/types/Pricing.ts
@@ -1350,7 +1366,7 @@ export default QuotesPage;
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Paper, Button, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
-import { fetchQuote, updateQuote, deleteQuote, fetchCustomers, createQuote } from '../api/apiService';
+import { fetchQuote, updateQuote, deleteQuote, fetchCustomers, createQuote, sendQuoteEmail } from '../api/apiService';
 import { Quote, NewQuote } from '../types/Quote';
 import { Customer } from '../types/Customer';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
@@ -1366,6 +1382,7 @@ const QuoteDetailsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -1382,9 +1399,17 @@ const QuoteDetailsPage: React.FC = () => {
             customerId: '',
             customerName: '',
             rampConfiguration: { components: [], totalLength: 0 },
-            pricingCalculations: { deliveryFee: 0, installFee: 0, monthlyRentalRate: 0, totalUpfront: 0, distance: 0 },
-            status: 'pending',
-            warehouseAddress: '',
+            pricingCalculations: {
+              deliveryFee: 0,
+              installFee: 0,
+              monthlyRentalRate: 0,
+              totalUpfront: 0,
+              distance: 0,
+              warehouseAddress: '',
+            },
+            status: 'draft',
+            paymentStatus: 'pending',
+            agreementStatus: 'pending',
             installAddress: '',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -1438,6 +1463,44 @@ const QuoteDetailsPage: React.FC = () => {
     }
   };
 
+  const handleSendQuote = async () => {
+    if (id) {
+      console.log(`Attempting to send quote with ID: ${id}`);
+      setIsSending(true);
+      setError(null);
+      try {
+        console.log('Calling sendQuoteEmail API...');
+        await sendQuoteEmail(id);
+        console.log('Quote email sent successfully');
+        
+        // Update the quote status locally
+        setQuote(prevQuote => {
+          if (prevQuote) {
+            console.log(`Updating quote status from ${prevQuote.status} to 'sent'`);
+            return { ...prevQuote, status: 'sent' };
+          }
+          return null;
+        });
+        
+        console.log('Quote status updated locally');
+      } catch (err: any) {
+        console.error('Error in handleSendQuote:', err);
+        setError(err.message || 'Failed to send quote email');
+      } finally {
+        setIsSending(false);
+        console.log('Send quote process completed');
+      }
+    } else {
+      console.warn('Attempted to send quote without a valid ID');
+    }
+  };
+
+  const renderStatus = (label: string, status: string) => (
+    <Typography>
+      <strong>{label}:</strong> {status.charAt(0).toUpperCase() + status.slice(1)}
+    </Typography>
+  );
+
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
   if (!quote && id) return <ErrorMessage message="Quote not found" />;
@@ -1459,7 +1522,9 @@ const QuoteDetailsPage: React.FC = () => {
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Typography variant="h6">Customer: {quote.customerName}</Typography>
-              <Typography>Status: {quote.status}</Typography>
+              {renderStatus('Quote Status', quote.status)}
+              {renderStatus('Payment Status', quote.paymentStatus)}
+              {renderStatus('Agreement Status', quote.agreementStatus)}
               <Typography>Total Upfront: ${quote.pricingCalculations.totalUpfront.toFixed(2)}</Typography>
               <Typography>Monthly Rental Rate: ${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</Typography>
             </Grid>
@@ -1485,11 +1550,29 @@ const QuoteDetailsPage: React.FC = () => {
               <Typography>Distance: {quote.pricingCalculations.distance.toFixed(2)} miles</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Button variant="contained" color="primary" onClick={() => setIsEditing(true)} className="mr-2">
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={() => setIsEditing(true)} 
+                className="mr-2"
+              >
                 Edit
               </Button>
-              <Button variant="contained" color="secondary" onClick={() => setIsDeleting(true)}>
+              <Button 
+                variant="contained" 
+                color="secondary" 
+                onClick={() => setIsDeleting(true)}
+                className="mr-2"
+              >
                 Delete
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSendQuote}
+                disabled={isSending || (quote && '_id' in quote && quote.status !== 'draft')}
+              >
+                {isSending ? 'Sending...' : 'Send Quote'}
               </Button>
             </Grid>
           </Grid>
@@ -1530,6 +1613,127 @@ const QuoteDetailsPage: React.FC = () => {
 };
 
 export default QuoteDetailsPage;
+```
+
+# src/pages/QuoteAcceptancePage.tsx
+
+```tsx
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Typography, Paper, Button, CircularProgress, Link } from '@mui/material';
+import { acceptQuote } from '../api/apiService';
+import { ErrorMessage } from '../components/shared/ErrorMessage';
+
+interface AcceptanceResponse {
+  message: string;
+  paymentLink: string;
+  signatureLink: string;
+}
+
+const QuoteAcceptancePage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [acceptanceData, setAcceptanceData] = useState<AcceptanceResponse | null>(null);
+
+  useEffect(() => {
+    console.log('QuoteAcceptancePage mounted');
+    const acceptQuoteWithToken = async () => {
+      console.log('Accepting quote...');
+      const searchParams = new URLSearchParams(location.search);
+      const token = searchParams.get('token');
+      console.log('ID:', id, 'Token:', token);
+      if (!id || !token) {
+        setError('Invalid quote ID or token');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await acceptQuote(id, token);
+        setAcceptanceData(response);
+      } catch (err: any) {
+        console.error('Error in acceptQuoteWithToken:', err);
+        if (err.message.includes('Invalid or expired acceptance token')) {
+          setError('The acceptance link has expired. Please contact support for assistance.');
+        } else {
+          setError(err.message || 'Failed to accept quote');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    acceptQuoteWithToken();
+  }, [id, location.search]);
+
+  if (isLoading) return <CircularProgress />;
+  if (error) return (
+    <Paper elevation={3} className="p-4">
+      <Typography variant="h4" gutterBottom color="error">
+        Error Accepting Quote
+      </Typography>
+      <ErrorMessage message={error} />
+      <Typography variant="body1" gutterBottom>
+        If you continue to experience issues, please contact our support team with the following information:
+      </Typography>
+      <Typography variant="body2">
+        Quote ID: {id}
+      </Typography>
+      <Typography variant="body2">
+        Error Time: {new Date().toISOString()}
+      </Typography>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={() => navigate('/')}
+        className="mt-4"
+      >
+        Return to Home
+      </Button>
+    </Paper>
+  );
+
+  return (
+    <Paper elevation={3} className="p-4">
+      <Typography variant="h4" gutterBottom>
+        Quote Accepted
+      </Typography>
+      {acceptanceData ? (
+        <>
+          <Typography>
+            {acceptanceData.message}
+          </Typography>
+          <Typography variant="h6" gutterBottom className="mt-4">
+            Next Steps:
+          </Typography>
+          <Typography>
+            1. <Link href={acceptanceData.paymentLink} target="_blank" rel="noopener noreferrer">Make your payment</Link>
+          </Typography>
+          <Typography>
+            2. <Link href={acceptanceData.signatureLink} target="_blank" rel="noopener noreferrer">Sign the agreement</Link>
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => navigate('/')}
+            className="mt-4"
+          >
+            Return to Home
+          </Button>
+        </>
+      ) : (
+        <Typography color="error">
+          There was an issue processing the quote acceptance. Please try again or contact support.
+        </Typography>
+      )}
+    </Paper>
+  );
+};
+
+export default QuoteAcceptancePage;
 ```
 
 # src/pages/DashboardPage.tsx
@@ -2479,6 +2683,30 @@ export const sendQuoteEmail = async (quoteId: string): Promise<void> => {
   }
 };
 
+interface AcceptanceResponse {
+  message: string;
+  paymentLink: string;
+  signatureLink: string;
+}
+
+export const acceptQuote = async (quoteId: string, token: string): Promise<AcceptanceResponse> => {
+  try {
+    console.log(`Attempting to accept quote with ID: ${quoteId} and token: ${token}`);
+    const response = await apiClient.get<AcceptanceResponse>(`/quotes/${quoteId}/accept?token=${token}`);
+    console.log('Accept quote response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error accepting quote:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Server response:', error.response.data);
+      if (error.response.status === 401) {
+        throw new Error('Invalid or expired acceptance token');
+      }
+    }
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
 export const createCustomerFromRentalRequest = async (rentalRequestId: string): Promise<Customer> => {
   try {
     const response = await apiClient.post<Customer>(`/customers/from-rental-request/${rentalRequestId}`);
@@ -2487,6 +2715,279 @@ export const createCustomerFromRentalRequest = async (rentalRequestId: string): 
     throw new Error(handleApiError(error as AxiosError));
   }
 };
+```
+
+# src/components/shared/SelectField.tsx
+
+```tsx
+import React from 'react';
+import { FormControl, InputLabel, Select, MenuItem, SelectProps } from '@mui/material';
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+interface SelectFieldProps extends Omit<SelectProps, 'onChange'> {
+  name: string;
+  label: string;
+  options: SelectOption[];
+  onChange: (name: string, value: string) => void;
+}
+
+export const SelectField: React.FC<SelectFieldProps> = ({ name, label, options, value, onChange, ...props }) => (
+  <FormControl fullWidth variant="outlined" margin="normal">
+    <InputLabel id={`${name}-label`}>{label}</InputLabel>
+    <Select
+      labelId={`${name}-label`}
+      id={name}
+      name={name}
+      value={value}
+      onChange={(e) => onChange(name, e.target.value as string)}
+      label={label}
+      {...props}
+    >
+      {options.map((option) => (
+        <MenuItem key={option.value} value={option.value}>
+          {option.label}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+);
+```
+
+# src/components/shared/LoadingSpinner.tsx
+
+```tsx
+import React from 'react';
+import { CircularProgress } from '@mui/material';
+
+interface LoadingSpinnerProps {
+  size?: number;
+}
+
+export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 40 }) => (
+  <div className="flex justify-center items-center h-32">
+    <CircularProgress size={size} />
+  </div>
+);
+```
+
+# src/components/shared/InstallAddressField.tsx
+
+```tsx
+import React, { useRef, useEffect } from 'react';
+import { TextField } from '@mui/material';
+import { useLoadScript, Autocomplete } from '@react-google-maps/api';
+import { styled } from '@mui/system';
+
+interface InstallAddressFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+const libraries: ("places")[] = ['places'];
+
+const StyledAutocomplete = styled(Autocomplete)({
+  '& .pac-container': {
+    zIndex: 1301, // This should be higher than the Dialog's z-index
+  },
+});
+
+const InstallAddressField: React.FC<InstallAddressFieldProps> = ({ value, onChange }) => {
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_API_KEY || '',
+    libraries,
+  });
+
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    if (isLoaded) {
+      const pacContainers = document.getElementsByClassName('pac-container');
+      for (let i = 0; i < pacContainers.length; i++) {
+        (pacContainers[i] as HTMLElement).style.zIndex = '1301';
+      }
+    }
+  }, [isLoaded]);
+
+  const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
+    autocompleteRef.current = autocomplete;
+  };
+
+  const onPlaceChanged = () => {
+    if (autocompleteRef.current !== null) {
+      const place = autocompleteRef.current.getPlace();
+      if (place.formatted_address) {
+        onChange(place.formatted_address);
+      } else if (place.name) {
+        // If formatted_address is not available, use the place name
+        onChange(place.name);
+      } else {
+        // If neither formatted_address nor name is available, use whatever text is in the input
+        const input = document.querySelector('input[aria-autocomplete="list"]') as HTMLInputElement;
+        if (input) {
+          onChange(input.value);
+        }
+      }
+    }
+  };
+
+  if (loadError) return <div>Error loading Google Maps</div>;
+  if (!isLoaded) return <div>Loading...</div>;
+
+  return (
+    <StyledAutocomplete onLoad={onLoad} onPlaceChanged={onPlaceChanged}>
+      <TextField
+        label="Installation Address"
+        variant="outlined"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        fullWidth
+        required
+      />
+    </StyledAutocomplete>
+  );
+};
+
+export default InstallAddressField;
+```
+
+# src/components/shared/GoogleAddressField.tsx
+
+```tsx
+import React, { useRef, useEffect } from 'react';
+import { TextField } from '@mui/material';
+
+interface GoogleAddressFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}
+
+const GoogleAddressField: React.FC<GoogleAddressFieldProps> = ({ value, onChange, label }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    if (!inputRef.current) return;
+
+    const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
+      types: ['address'],
+    });
+
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      if (place && place.formatted_address) {
+        onChange(place.formatted_address);
+      } else if (inputRef.current) {
+        // If formatted_address is not available, use the input value
+        onChange(inputRef.current.value);
+      }
+    });
+
+    autocompleteRef.current = autocomplete;
+
+    return () => {
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
+    };
+  }, [onChange]);
+
+  return (
+    <TextField
+      inputRef={inputRef}
+      label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      fullWidth
+      variant="outlined"
+    />
+  );
+};
+
+export default GoogleAddressField;
+```
+
+# src/components/shared/FormField.tsx
+
+```tsx
+import React from 'react';
+import { TextField, TextFieldProps } from '@mui/material';
+
+interface FormFieldProps extends Omit<TextFieldProps, 'onChange'> {
+  name: string;
+  label: string;
+  value: string | number;
+  onChange: (name: string, value: string) => void;
+}
+
+export const FormField: React.FC<FormFieldProps> = ({ name, label, value, onChange, ...props }) => (
+  <TextField
+    name={name}
+    label={label}
+    value={value}
+    onChange={(e) => onChange(name, e.target.value)}
+    fullWidth
+    variant="outlined"
+    margin="normal"
+    {...props}
+  />
+);
+```
+
+# src/components/shared/ErrorMessage.tsx
+
+```tsx
+import React from 'react';
+import { Typography } from '@mui/material';
+
+interface ErrorMessageProps {
+  message: string | null;
+}
+
+export const ErrorMessage: React.FC<ErrorMessageProps> = ({ message }) => {
+  if (!message) return null;
+
+  return (
+    <Typography color="error" className="mt-2">
+      {message}
+    </Typography>
+  );
+};
+```
+
+# src/components/shared/EntityCard.tsx
+
+```tsx
+import React from 'react';
+import { Card, CardContent, Typography } from '@mui/material';
+
+interface EntityCardProps {
+  id: string;
+  title: string;
+  subtitle: string;
+  entityType: 'customer' | 'quote' | 'rentalRequest';
+  onClick: () => void;
+}
+
+const EntityCard: React.FC<EntityCardProps> = ({ id, title, subtitle, entityType, onClick }) => {
+  return (
+    <Card 
+      className="cursor-pointer hover:shadow-lg transition-shadow" 
+      onClick={onClick}
+    >
+      <CardContent>
+        <Typography variant="h6">{title}</Typography>
+        <Typography color="textSecondary">{subtitle}</Typography>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default EntityCard;
 ```
 
 # src/components/rental-requests/RentalRequestForm.tsx
@@ -2790,279 +3291,6 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ rentalRequest, on
 export default RentalRequestForm;
 ```
 
-# src/components/shared/SelectField.tsx
-
-```tsx
-import React from 'react';
-import { FormControl, InputLabel, Select, MenuItem, SelectProps } from '@mui/material';
-
-interface SelectOption {
-  value: string;
-  label: string;
-}
-
-interface SelectFieldProps extends Omit<SelectProps, 'onChange'> {
-  name: string;
-  label: string;
-  options: SelectOption[];
-  onChange: (name: string, value: string) => void;
-}
-
-export const SelectField: React.FC<SelectFieldProps> = ({ name, label, options, value, onChange, ...props }) => (
-  <FormControl fullWidth variant="outlined" margin="normal">
-    <InputLabel id={`${name}-label`}>{label}</InputLabel>
-    <Select
-      labelId={`${name}-label`}
-      id={name}
-      name={name}
-      value={value}
-      onChange={(e) => onChange(name, e.target.value as string)}
-      label={label}
-      {...props}
-    >
-      {options.map((option) => (
-        <MenuItem key={option.value} value={option.value}>
-          {option.label}
-        </MenuItem>
-      ))}
-    </Select>
-  </FormControl>
-);
-```
-
-# src/components/shared/LoadingSpinner.tsx
-
-```tsx
-import React from 'react';
-import { CircularProgress } from '@mui/material';
-
-interface LoadingSpinnerProps {
-  size?: number;
-}
-
-export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 40 }) => (
-  <div className="flex justify-center items-center h-32">
-    <CircularProgress size={size} />
-  </div>
-);
-```
-
-# src/components/shared/InstallAddressField.tsx
-
-```tsx
-import React, { useRef, useEffect } from 'react';
-import { TextField } from '@mui/material';
-import { useLoadScript, Autocomplete } from '@react-google-maps/api';
-import { styled } from '@mui/system';
-
-interface InstallAddressFieldProps {
-  value: string;
-  onChange: (value: string) => void;
-}
-
-const libraries: ("places")[] = ['places'];
-
-const StyledAutocomplete = styled(Autocomplete)({
-  '& .pac-container': {
-    zIndex: 1301, // This should be higher than the Dialog's z-index
-  },
-});
-
-const InstallAddressField: React.FC<InstallAddressFieldProps> = ({ value, onChange }) => {
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_API_KEY || '',
-    libraries,
-  });
-
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-
-  useEffect(() => {
-    if (isLoaded) {
-      const pacContainers = document.getElementsByClassName('pac-container');
-      for (let i = 0; i < pacContainers.length; i++) {
-        (pacContainers[i] as HTMLElement).style.zIndex = '1301';
-      }
-    }
-  }, [isLoaded]);
-
-  const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
-    autocompleteRef.current = autocomplete;
-  };
-
-  const onPlaceChanged = () => {
-    if (autocompleteRef.current !== null) {
-      const place = autocompleteRef.current.getPlace();
-      if (place.formatted_address) {
-        onChange(place.formatted_address);
-      } else if (place.name) {
-        // If formatted_address is not available, use the place name
-        onChange(place.name);
-      } else {
-        // If neither formatted_address nor name is available, use whatever text is in the input
-        const input = document.querySelector('input[aria-autocomplete="list"]') as HTMLInputElement;
-        if (input) {
-          onChange(input.value);
-        }
-      }
-    }
-  };
-
-  if (loadError) return <div>Error loading Google Maps</div>;
-  if (!isLoaded) return <div>Loading...</div>;
-
-  return (
-    <StyledAutocomplete onLoad={onLoad} onPlaceChanged={onPlaceChanged}>
-      <TextField
-        label="Installation Address"
-        variant="outlined"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        fullWidth
-        required
-      />
-    </StyledAutocomplete>
-  );
-};
-
-export default InstallAddressField;
-```
-
-# src/components/shared/GoogleAddressField.tsx
-
-```tsx
-import React, { useRef, useEffect } from 'react';
-import { TextField } from '@mui/material';
-
-interface GoogleAddressFieldProps {
-  value: string;
-  onChange: (value: string) => void;
-  label: string;
-}
-
-const GoogleAddressField: React.FC<GoogleAddressFieldProps> = ({ value, onChange, label }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-
-  useEffect(() => {
-    if (!inputRef.current) return;
-
-    const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
-      types: ['address'],
-    });
-
-    autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace();
-      if (place && place.formatted_address) {
-        onChange(place.formatted_address);
-      } else if (inputRef.current) {
-        // If formatted_address is not available, use the input value
-        onChange(inputRef.current.value);
-      }
-    });
-
-    autocompleteRef.current = autocomplete;
-
-    return () => {
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      }
-    };
-  }, [onChange]);
-
-  return (
-    <TextField
-      inputRef={inputRef}
-      label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      fullWidth
-      variant="outlined"
-    />
-  );
-};
-
-export default GoogleAddressField;
-```
-
-# src/components/shared/FormField.tsx
-
-```tsx
-import React from 'react';
-import { TextField, TextFieldProps } from '@mui/material';
-
-interface FormFieldProps extends Omit<TextFieldProps, 'onChange'> {
-  name: string;
-  label: string;
-  value: string | number;
-  onChange: (name: string, value: string) => void;
-}
-
-export const FormField: React.FC<FormFieldProps> = ({ name, label, value, onChange, ...props }) => (
-  <TextField
-    name={name}
-    label={label}
-    value={value}
-    onChange={(e) => onChange(name, e.target.value)}
-    fullWidth
-    variant="outlined"
-    margin="normal"
-    {...props}
-  />
-);
-```
-
-# src/components/shared/ErrorMessage.tsx
-
-```tsx
-import React from 'react';
-import { Typography } from '@mui/material';
-
-interface ErrorMessageProps {
-  message: string | null;
-}
-
-export const ErrorMessage: React.FC<ErrorMessageProps> = ({ message }) => {
-  if (!message) return null;
-
-  return (
-    <Typography color="error" className="mt-2">
-      {message}
-    </Typography>
-  );
-};
-```
-
-# src/components/shared/EntityCard.tsx
-
-```tsx
-import React from 'react';
-import { Card, CardContent, Typography } from '@mui/material';
-
-interface EntityCardProps {
-  id: string;
-  title: string;
-  subtitle: string;
-  entityType: 'customer' | 'quote' | 'rentalRequest';
-  onClick: () => void;
-}
-
-const EntityCard: React.FC<EntityCardProps> = ({ id, title, subtitle, entityType, onClick }) => {
-  return (
-    <Card 
-      className="cursor-pointer hover:shadow-lg transition-shadow" 
-      onClick={onClick}
-    >
-      <CardContent>
-        <Typography variant="h6">{title}</Typography>
-        <Typography color="textSecondary">{subtitle}</Typography>
-      </CardContent>
-    </Card>
-  );
-};
-
-export default EntityCard;
-```
-
 # src/components/quotes/RampConfiguration.tsx
 
 ```tsx
@@ -3229,11 +3457,13 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
           monthlyRentalRate: 0,
           totalUpfront: 0,
           distance: 0,
+          warehouseAddress: '',
         },
-        status: 'pending',
+        status: 'draft' as const,
+        paymentStatus: 'pending' as const,
+        agreementStatus: 'pending' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        warehouseAddress: '',
         installAddress: '',
       };
     }
@@ -3339,9 +3569,11 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ quote, customers, onSave, onCance
               value={formData.status}
               onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as Quote['status'] }))}
             >
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="approved">Approved</MenuItem>
-              <MenuItem value="rejected">Rejected</MenuItem>
+              <MenuItem value="draft">Draft</MenuItem>
+              <MenuItem value="sent">Sent</MenuItem>
+              <MenuItem value="accepted">Accepted</MenuItem>
+              <MenuItem value="paid">Paid</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
             </Select>
           </FormControl>
         </Grid>
@@ -3377,7 +3609,7 @@ export default QuoteForm;
 ```tsx
 // src/components/quotes/PricingCalculator.tsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Typography, Paper, Grid, CircularProgress } from '@mui/material';
 import { RampConfiguration } from '../../types/Quote';
 import { PricingVariables } from '../../types/Pricing';
@@ -3389,37 +3621,41 @@ interface PricingCalculatorProps {
   installAddress: string;
 }
 
+interface PricingResult {
+  deliveryFee: number;
+  installFee: number;
+  monthlyRentalRate: number;
+  totalUpfront: number;
+  distance: number;
+}
+
 const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration, installAddress }) => {
   const [pricingVariables, setPricingVariables] = useState<PricingVariables | null>(null);
-  const [pricing, setPricing] = useState<{
-    deliveryFee: number;
-    installFee: number;
-    monthlyRentalRate: number;
-    totalUpfront: number;
-    distance: number;
-  } | null>(null);
+  const [pricing, setPricing] = useState<PricingResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const debouncedCalculatePrices = useCallback(
-    debounce(async (config: RampConfiguration, address: string, variables: PricingVariables) => {
+  const debouncedCalculatePrices = useMemo(
+    () => debounce((config: RampConfiguration, address: string, variables: PricingVariables) => {
       setIsLoading(true);
       setError(null);
-      try {
-        const result = await calculatePricing({
-          rampConfiguration: config,
-          installAddress: address,
-          warehouseAddress: variables.warehouseAddress
+      calculatePricing({
+        rampConfiguration: config,
+        installAddress: address,
+        warehouseAddress: variables.warehouseAddress
+      })
+        .then((result) => {
+          setPricing(result);
+        })
+        .catch((err: any) => {
+          console.error('Error calculating pricing:', err);
+          setError('Failed to calculate pricing');
+        })
+        .finally(() => {
+          setIsLoading(false);
         });
-        setPricing(result);
-      } catch (err: any) {
-        console.error('Error calculating pricing:', err);
-        setError('Failed to calculate pricing');
-      } finally {
-        setIsLoading(false);
-      }
     }, 500),
-    []
+    [setIsLoading, setError, setPricing]
   );
 
   useEffect(() => {
@@ -3456,21 +3692,25 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({ rampConfiguration
     return <Typography>Please configure the ramp to see pricing.</Typography>;
   }
 
+  const pricingItems: [string, string][] = [
+    ['Delivery Fee', `$${pricing.deliveryFee.toFixed(2)}`],
+    ['Install Fee', `$${pricing.installFee.toFixed(2)}`],
+    ['Monthly Rental Rate', `$${pricing.monthlyRentalRate.toFixed(2)}`],
+    ['Total Upfront', `$${pricing.totalUpfront.toFixed(2)}`],
+    ['Distance', `${pricing.distance.toFixed(2)} miles`],
+  ];
+
   return (
     <Paper elevation={3} style={{ padding: '16px', marginTop: '16px' }}>
       <Typography variant="h6" gutterBottom>Pricing Calculation</Typography>
       <Grid container spacing={2}>
-        {Object.entries(pricing).map(([key, value]) => (
-          <React.Fragment key={key}>
+        {pricingItems.map(([label, value]) => (
+          <React.Fragment key={label}>
             <Grid item xs={6}>
-              <Typography>{key.charAt(0).toUpperCase() + key.slice(1)}:</Typography>
+              <Typography>{label}:</Typography>
             </Grid>
             <Grid item xs={6}>
-              <Typography>
-                {typeof value === 'number' ? 
-                  (key === 'distance' ? `${value.toFixed(2)} miles` : `$${value.toFixed(2)}`) : 
-                  value}
-              </Typography>
+              <Typography>{value}</Typography>
             </Grid>
           </React.Fragment>
         ))}
@@ -3628,111 +3868,6 @@ const PricingVariablesSettings: React.FC = () => {
 };
 
 export default PricingVariablesSettings;
-```
-
-# src/components/payment/PaymentLinkSender.tsx
-
-```tsx
-// src/components/PaymentLinkSender.tsx
-
-import React, { useState } from 'react';
-import { Button, Typography, Link, CircularProgress, Paper } from '@mui/material';
-import { createPaymentLink, checkPaymentStatus } from '../../api/apiService';
-import { PaymentLinkResponse, PaymentStatus } from '../../types/Payment';
-
-interface PaymentLinkSenderProps {
-  amount: number;
-  customerEmail: string;
-}
-
-const PaymentLinkSender: React.FC<PaymentLinkSenderProps> = ({
-  amount,
-  customerEmail,
-}) => {
-  const [paymentLink, setPaymentLink] = useState<PaymentLinkResponse | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const handleCreatePaymentLink = async () => {
-    setLoading(true);
-    try {
-      const response = await createPaymentLink({ amount, customerEmail });
-      setPaymentLink(response);
-      // Optionally, send the link via email through backend
-    } catch (error: any) {
-      setErrorMessage(
-        error.response?.data?.message || 'Failed to create payment link.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCheckPaymentStatus = async () => {
-    if (paymentLink) {
-      setLoading(true);
-      try {
-        const response = await checkPaymentStatus(paymentLink.id);
-        setPaymentStatus(response);
-      } catch (error: any) {
-        setErrorMessage(
-          error.response?.data?.message || 'Failed to check payment status.'
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  return (
-    <Paper elevation={3} style={{ padding: '16px', marginTop: '16px' }}>
-      <Typography variant="h6" gutterBottom>
-        Send Payment Link
-      </Typography>
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleCreatePaymentLink}
-        disabled={loading}
-      >
-        {loading ? <CircularProgress size={24} /> : 'Generate Payment Link'}
-      </Button>
-
-      {paymentLink && (
-        <div style={{ marginTop: '16px' }}>
-          <Typography>Payment Link:</Typography>
-          <Link href={paymentLink.url} target="_blank" rel="noopener">
-            {paymentLink.url}
-          </Link>
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={handleCheckPaymentStatus}
-            style={{ marginTop: '8px' }}
-            disabled={loading}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Check Payment Status'}
-          </Button>
-        </div>
-      )}
-
-      {paymentStatus && (
-        <Typography style={{ marginTop: '16px' }}>
-          Payment Status: {paymentStatus.status}
-        </Typography>
-      )}
-
-      {errorMessage && (
-        <Typography color="error" style={{ marginTop: '16px' }}>
-          {errorMessage}
-        </Typography>
-      )}
-    </Paper>
-  );
-};
-
-export default PaymentLinkSender;
 ```
 
 # src/components/customers/CustomerForm.tsx
@@ -3917,5 +4052,110 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ customer, onSave, onCancel 
 };
 
 export default CustomerForm;
+```
+
+# src/components/payment/PaymentLinkSender.tsx
+
+```tsx
+// src/components/PaymentLinkSender.tsx
+
+import React, { useState } from 'react';
+import { Button, Typography, Link, CircularProgress, Paper } from '@mui/material';
+import { createPaymentLink, checkPaymentStatus } from '../../api/apiService';
+import { PaymentLinkResponse, PaymentStatus } from '../../types/Payment';
+
+interface PaymentLinkSenderProps {
+  amount: number;
+  customerEmail: string;
+}
+
+const PaymentLinkSender: React.FC<PaymentLinkSenderProps> = ({
+  amount,
+  customerEmail,
+}) => {
+  const [paymentLink, setPaymentLink] = useState<PaymentLinkResponse | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleCreatePaymentLink = async () => {
+    setLoading(true);
+    try {
+      const response = await createPaymentLink({ amount, customerEmail });
+      setPaymentLink(response);
+      // Optionally, send the link via email through backend
+    } catch (error: any) {
+      setErrorMessage(
+        error.response?.data?.message || 'Failed to create payment link.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCheckPaymentStatus = async () => {
+    if (paymentLink) {
+      setLoading(true);
+      try {
+        const response = await checkPaymentStatus(paymentLink.id);
+        setPaymentStatus(response);
+      } catch (error: any) {
+        setErrorMessage(
+          error.response?.data?.message || 'Failed to check payment status.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <Paper elevation={3} style={{ padding: '16px', marginTop: '16px' }}>
+      <Typography variant="h6" gutterBottom>
+        Send Payment Link
+      </Typography>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleCreatePaymentLink}
+        disabled={loading}
+      >
+        {loading ? <CircularProgress size={24} /> : 'Generate Payment Link'}
+      </Button>
+
+      {paymentLink && (
+        <div style={{ marginTop: '16px' }}>
+          <Typography>Payment Link:</Typography>
+          <Link href={paymentLink.url} target="_blank" rel="noopener">
+            {paymentLink.url}
+          </Link>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleCheckPaymentStatus}
+            style={{ marginTop: '8px' }}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Check Payment Status'}
+          </Button>
+        </div>
+      )}
+
+      {paymentStatus && (
+        <Typography style={{ marginTop: '16px' }}>
+          Payment Status: {paymentStatus.status}
+        </Typography>
+      )}
+
+      {errorMessage && (
+        <Typography color="error" style={{ marginTop: '16px' }}>
+          {errorMessage}
+        </Typography>
+      )}
+    </Paper>
+  );
+};
+
+export default PaymentLinkSender;
 ```
 
