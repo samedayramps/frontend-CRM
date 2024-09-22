@@ -4,7 +4,7 @@ import PricingVariablesComponent from '../components/pricing/PricingVariablesSet
 
 const SettingsPage: React.FC = () => {
   return (
-    <Container maxWidth="lg" style={{ marginTop: '2rem' }}>
+    <Container maxWidth="lg" className="mt-8">
       <Typography variant="h4" gutterBottom>
         Settings
       </Typography>

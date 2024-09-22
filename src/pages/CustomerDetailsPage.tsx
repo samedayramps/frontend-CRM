@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Paper, Button, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Typography, Paper, Button, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { fetchCustomer, createCustomer, updateCustomer, deleteCustomer } from '../api/apiService';
 import { Customer } from '../types/Customer';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
@@ -112,12 +113,20 @@ const CustomerDetailsPage: React.FC = () => {
               </Grid>
             )}
             <Grid item xs={12}>
-              <Button variant="contained" color="primary" onClick={handleEdit} className="mr-2">
-                Edit
-              </Button>
-              <Button variant="contained" color="secondary" onClick={() => setIsDeleting(true)}>
-                Delete
-              </Button>
+              <IconButton 
+                onClick={handleEdit} 
+                color="primary" 
+                aria-label="edit customer"
+              >
+                <EditIcon />
+              </IconButton>
+              <IconButton 
+                onClick={() => setIsDeleting(true)}
+                color="secondary"
+                aria-label="delete customer"
+              >
+                <DeleteIcon />
+              </IconButton>
             </Grid>
           </Grid>
         ) : null}

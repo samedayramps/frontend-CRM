@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TextField, Button, Grid, Typography } from '@mui/material';
+import { TextField, Grid, Typography } from '@mui/material';
 import { fetchPricingVariables, updatePricingVariables } from '../../api/apiService';
 import { PricingVariables } from '../../types/Pricing';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
@@ -61,7 +61,7 @@ const PricingVariablesSettings: React.FC = () => {
   if (error) return <ErrorMessage message={error} />;
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
       <Grid container spacing={2}>
         <Grid item xs={12}>
           <Typography variant="h6">Pricing Variables</Typography>
@@ -126,13 +126,13 @@ const PricingVariablesSettings: React.FC = () => {
           />
         </Grid>
         <Grid item xs={12}>
-          <Button type="submit" variant="contained" color="primary">
+          <button type="submit" className="btn-primary">
             Update Pricing Variables
-          </Button>
+          </button>
         </Grid>
       </Grid>
       {successMessage && (
-        <Typography color="primary" style={{ marginTop: '16px' }}>
+        <Typography color="primary" className="mt-4">
           {successMessage}
         </Typography>
       )}

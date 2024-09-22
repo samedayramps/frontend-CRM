@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import { Container } from '@mui/material';
+// Remove the Container import
 import NavBar from './components/NavBar';
 import ErrorBoundary from './components/ErrorBoundary';
 import DashboardPage from './pages/DashboardPage';
@@ -39,7 +39,7 @@ const AppContent: React.FC = () => {
   return (
     <ErrorBoundary>
       {showNavBar && <NavBar />}
-      <Container maxWidth="lg" style={{ paddingTop: '24px', paddingBottom: '24px' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/rental-requests" element={<RentalRequestsPage />} />
@@ -54,7 +54,7 @@ const AppContent: React.FC = () => {
           <Route path="/customers/:id" element={<CustomerDetailsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
-      </Container>
+      </div>
     </ErrorBoundary>
   );
 };

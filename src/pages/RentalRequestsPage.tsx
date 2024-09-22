@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Typography, Grid, TextField, InputAdornment, Button } from '@mui/material';
+import { Typography, Grid, TextField, InputAdornment } from '@mui/material';
 import { Search } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { fetchRentalRequests } from '../api/apiService';
@@ -68,13 +68,12 @@ const RentalRequestsPage: React.FC = () => {
             ),
           }}
         />
-        <Button
-          variant="contained"
-          color="primary"
+        <button
           onClick={() => navigate('/rental-requests/new')}
+          className="btn-primary"
         >
-          Create Rental Request
-        </Button>
+          Create New Rental Request
+        </button>
       </div>
       <Grid container spacing={3}>
         {filteredRequests.map((request) => (

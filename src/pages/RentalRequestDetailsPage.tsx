@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Paper, Button, Grid, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Typography, Paper, Button, Grid, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton } from '@mui/material';
+import { Delete as DeleteIcon, PersonAdd as PersonAddIcon } from '@mui/icons-material';
 import { fetchRentalRequest, createCustomerFromRentalRequest, deleteRentalRequest } from '../api/apiService';
 import { RentalRequest } from '../types/RentalRequest';
 import { Customer } from '../types/Customer';
@@ -86,22 +87,21 @@ const RentalRequestDetailsPage: React.FC = () => {
           </Grid>
         )}
         <Grid item xs={12}>
-          <Button
-            variant="contained"
-            color="primary"
+          <IconButton
             onClick={handleCreateCustomer}
+            color="primary"
+            aria-label="create customer"
             disabled={creatingCustomer}
-            style={{ marginRight: '10px' }}
           >
-            {creatingCustomer ? 'Creating Customer...' : 'Create Customer'}
-          </Button>
-          <Button
-            variant="contained"
-            color="secondary"
+            <PersonAddIcon />
+          </IconButton>
+          <IconButton
             onClick={() => setIsDeleting(true)}
+            color="secondary"
+            aria-label="delete rental request"
           >
-            Delete Request
-          </Button>
+            <DeleteIcon />
+          </IconButton>
         </Grid>
       </Grid>
 

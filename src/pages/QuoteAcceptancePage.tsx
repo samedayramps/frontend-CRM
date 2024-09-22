@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Typography, Paper, Button, CircularProgress, Link } from '@mui/material';
+import { useParams, useLocation } from 'react-router-dom';
+import { Typography, Paper, CircularProgress, Link } from '@mui/material';
 import { acceptQuote } from '../api/apiService';
 import { ErrorMessage } from '../components/shared/ErrorMessage';
 
@@ -12,7 +12,6 @@ interface AcceptanceResponse {
 
 const QuoteAcceptancePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,14 +64,6 @@ const QuoteAcceptancePage: React.FC = () => {
       <Typography variant="body2">
         Error Time: {new Date().toISOString()}
       </Typography>
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={() => navigate('/')}
-        className="mt-4"
-      >
-        Return to Home
-      </Button>
     </Paper>
   );
 
@@ -95,14 +86,6 @@ const QuoteAcceptancePage: React.FC = () => {
           <Typography>
             2. <Link href={acceptanceData.signatureLink} target="_blank" rel="noopener noreferrer">Sign the agreement</Link>
           </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => navigate('/')}
-            className="mt-4"
-          >
-            Return to Home
-          </Button>
         </>
       ) : (
         <Typography color="error">
