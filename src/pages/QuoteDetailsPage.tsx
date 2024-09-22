@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Paper, Button, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Typography, Paper, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon, Send as SendIcon } from '@mui/icons-material';
 import { fetchQuote, updateQuote, deleteQuote, fetchCustomers, createQuote, sendQuoteEmail } from '../api/apiService';
 import { Quote, NewQuote } from '../types/Quote';
 import { Customer } from '../types/Customer';
@@ -187,42 +188,38 @@ const QuoteDetailsPage: React.FC = () => {
               <Typography>Distance: {quote.pricingCalculations.distance.toFixed(2)} miles</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Button 
-                variant="contained" 
-                color="primary" 
+              <IconButton 
                 onClick={() => setIsEditing(true)} 
-                className="mr-2"
+                color="primary" 
+                aria-label="edit quote"
               >
-                Edit
-              </Button>
-              <Button 
-                variant="contained" 
-                color="secondary" 
+                <EditIcon />
+              </IconButton>
+              <IconButton 
                 onClick={() => setIsDeleting(true)}
-                className="mr-2"
+                color="secondary"
+                aria-label="delete quote"
               >
-                Delete
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
+                <DeleteIcon />
+              </IconButton>
+              <IconButton
                 onClick={handleSendQuote}
+                color="primary"
+                aria-label="send quote"
                 disabled={isSending || (quote && '_id' in quote && quote.status !== 'draft')}
               >
-                {isSending ? 'Sending...' : 'Send Quote'}
-              </Button>
+                <SendIcon />
+              </IconButton>
             </Grid>
           </Grid>
         ) : null}
       </Paper>
-      <Button
-        variant="outlined"
-        color="primary"
+      <button
         onClick={() => navigate('/quotes')}
-        className="mt-4"
+        className="btn-primary mt-4"
       >
         Back to Quotes
-      </Button>
+      </button>
 
       <Dialog
         open={isDeleting}
@@ -237,12 +234,12 @@ const QuoteDetailsPage: React.FC = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsDeleting(false)} color="primary">
+          <button onClick={() => setIsDeleting(false)} className="btn-secondary">
             Cancel
-          </Button>
-          <Button onClick={handleDelete} color="secondary" autoFocus>
+          </button>
+          <button onClick={handleDelete} className="btn-primary">
             Delete
-          </Button>
+          </button>
         </DialogActions>
       </Dialog>
     </div>
