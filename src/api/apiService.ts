@@ -6,7 +6,7 @@ import { PaymentLinkResponse, PaymentStatus } from '../types/Payment';
 import { EsignatureRequest, EsignatureStatus } from '../types/esignature';
 import { Customer } from '../types/Customer';
 import { RampConfiguration } from '../types/Quote';
-import { Job, CreateJobInput, UpdateJobInput, ScheduleJobInput, JobStatus } from '../types/Job';
+import { Job, JobStatus } from '../types/Job';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://samedayramps-016e8e090b17.herokuapp.com/api';
 
