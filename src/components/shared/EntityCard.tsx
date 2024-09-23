@@ -5,7 +5,7 @@ interface EntityCardProps {
   id: string;
   title: string;
   subtitle: string;
-  entityType: 'customer' | 'quote' | 'rentalRequest';
+  entityType: 'quote' | 'customer' | 'rentalRequest' | 'job';
   onClick: () => void;
 }
 

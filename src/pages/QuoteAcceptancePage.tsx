@@ -24,14 +24,14 @@ const QuoteAcceptancePage: React.FC = () => {
       const searchParams = new URLSearchParams(location.search);
       const token = searchParams.get('token');
       console.log('ID:', id, 'Token:', token);
-      if (!id || !token) {
-        setError('Invalid quote ID or token');
+      if (!id) {
+        setError('Invalid quote ID');
         setIsLoading(false);
         return;
       }
 
       try {
-        const response = await acceptQuote(id, token);
+        const response = await acceptQuote(id);
         setAcceptanceData(response);
       } catch (err: any) {
         console.error('Error in acceptQuoteWithToken:', err);

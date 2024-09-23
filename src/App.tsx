@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-// Remove the Container import
 import NavBar from './components/NavBar';
 import ErrorBoundary from './components/ErrorBoundary';
 import DashboardPage from './pages/DashboardPage';
@@ -12,6 +11,9 @@ import QuoteAcceptancePage from './pages/QuoteAcceptancePage';
 import CustomersPage from './pages/CustomersPage';
 import CustomerDetailsPage from './pages/CustomerDetailsPage';
 import SettingsPage from './pages/SettingsPage';
+import JobsPage from './pages/JobsPage';
+import JobDetailsPage from './pages/JobDetailsPage';
+import JobCreationPage from './pages/JobCreationPage';
 
 const AppContent: React.FC = () => {
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
@@ -53,6 +55,9 @@ const AppContent: React.FC = () => {
           <Route path="/customers/new" element={<CustomerDetailsPage />} />
           <Route path="/customers/:id" element={<CustomerDetailsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/jobs/new" element={<JobCreationPage />} />
+          <Route path="/jobs/:id" element={<JobDetailsPage />} />
         </Routes>
       </div>
     </ErrorBoundary>

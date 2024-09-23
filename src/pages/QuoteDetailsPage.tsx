@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Paper, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Send as SendIcon } from '@mui/icons-material';
-import { fetchQuote, updateQuote, deleteQuote, fetchCustomers, createQuote, sendQuoteEmail } from '../api/apiService';
+import { Typography, Paper, Grid, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Snackbar } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon, Send as SendIcon, Work as WorkIcon } from '@mui/icons-material';
+import { fetchQuote, updateQuote, deleteQuote, fetchCustomers, createQuote, sendQuoteEmail, createJobFromQuote } from '../api/apiService';
 import { Quote, NewQuote } from '../types/Quote';
 import { Customer } from '../types/Customer';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
@@ -19,6 +19,9 @@ const QuoteDetailsPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isCreatingJob, setIsCreatingJob] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -133,6 +136,27 @@ const QuoteDetailsPage: React.FC = () => {
     }
   };
 
+  const handleCreateJob = async () => {
+    if (id) {
+      setIsCreatingJob(true);
+      setError(null);
+      try {
+        const job = await createJobFromQuote(id);
+        setSnackbarMessage('Job created successfully');
+        setSnackbarOpen(true);
+        // Optionally navigate to the new job's details page
+        navigate(`/jobs/${job._id}`);
+      } catch (err: any) {
+        console.error('Error creating job:', err);
+        setError(err.message || 'Failed to create job');
+        setSnackbarMessage('Failed to create job');
+        setSnackbarOpen(true);
+      } finally {
+        setIsCreatingJob(false);
+      }
+    }
+  };
+
   const renderStatus = (label: string, status: string) => (
     <Typography>
       <strong>{label}:</strong> {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -159,7 +183,7 @@ const QuoteDetailsPage: React.FC = () => {
         ) : quote && '_id' in quote ? (
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <Typography variant="h6">Customer: {quote.customerName}</Typography>
+              <Typography variant="h6">Customer: {quote.customerName || 'N/A'}</Typography>
               {renderStatus('Quote Status', quote.status)}
               {renderStatus('Payment Status', quote.paymentStatus)}
               {renderStatus('Agreement Status', quote.agreementStatus)}
@@ -210,6 +234,14 @@ const QuoteDetailsPage: React.FC = () => {
               >
                 <SendIcon />
               </IconButton>
+              <IconButton
+                onClick={handleCreateJob}
+                color="primary"
+                aria-label="create job"
+                disabled={isCreatingJob || (quote && '_id' in quote && quote.status !== 'accepted')}
+              >
+                <WorkIcon />
+              </IconButton>
             </Grid>
           </Grid>
         ) : null}
@@ -242,6 +274,13 @@ const QuoteDetailsPage: React.FC = () => {
           </button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMessage}
+      />
     </div>
   );
 };

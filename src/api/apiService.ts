@@ -6,6 +6,7 @@ import { PaymentLinkResponse, PaymentStatus } from '../types/Payment';
 import { EsignatureRequest, EsignatureStatus } from '../types/esignature';
 import { Customer } from '../types/Customer';
 import { RampConfiguration } from '../types/Quote';
+import { Job, CreateJobInput, UpdateJobInput, ScheduleJobInput, JobStatus } from '../types/Job';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://samedayramps-016e8e090b17.herokuapp.com/api';
 
@@ -16,20 +17,6 @@ const apiClient: AxiosInstance = axios.create({
   },
   withCredentials: true, // Ensure credentials are sent with requests
 });
-
-// Add a request interceptor
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 // Error handling function
 const handleApiError = (error: AxiosError): string => {
@@ -286,10 +273,10 @@ interface AcceptanceResponse {
   signatureLink: string;
 }
 
-export const acceptQuote = async (quoteId: string, token: string): Promise<AcceptanceResponse> => {
+export const acceptQuote = async (quoteId: string): Promise<AcceptanceResponse> => {
   try {
-    console.log(`Attempting to accept quote with ID: ${quoteId} and token: ${token}`);
-    const response = await apiClient.get<AcceptanceResponse>(`/quotes/${quoteId}/accept?token=${token}`);
+    console.log(`Attempting to accept quote with ID: ${quoteId}`);
+    const response = await apiClient.get<AcceptanceResponse>(`/quotes/${quoteId}/accept`);
     console.log('Accept quote response:', response.data);
     return response.data;
   } catch (error) {
@@ -307,6 +294,106 @@ export const acceptQuote = async (quoteId: string, token: string): Promise<Accep
 export const createCustomerFromRentalRequest = async (rentalRequestId: string): Promise<Customer> => {
   try {
     const response = await apiClient.post<Customer>(`/customers/from-rental-request/${rentalRequestId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+// Jobs
+export const fetchJobs = async (page: number = 1, limit: number = 10): Promise<{ jobs: Job[], currentPage: number, totalPages: number, totalJobs: number }> => {
+  try {
+    const response = await apiClient.get<{ jobs: Job[], currentPage: number, totalPages: number, totalJobs: number }>(`/jobs?page=${page}&limit=${limit}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const fetchJob = async (id: string): Promise<Job> => {
+  try {
+    const response = await apiClient.get<Job>(`/jobs/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const createJobFromQuote = async (quoteId: string): Promise<Job> => {
+  try {
+    const response = await apiClient.post<Job>(`/jobs/create-from-quote/${quoteId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error in createJobFromQuote:', error);
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const createJob = async (jobData: Omit<Job, '_id' | 'createdAt' | 'updatedAt'>): Promise<Job> => {
+  try {
+    const response = await apiClient.post<Job>('/jobs', jobData);
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const scheduleJob = async (jobId: string, installationDate: string): Promise<Job> => {
+  try {
+    const response = await apiClient.post<Job>(`/jobs/${jobId}/schedule`, { installationDate });
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const rescheduleJob = async (jobId: string, installationDate: string): Promise<Job> => {
+  try {
+    const response = await apiClient.put<Job>(`/jobs/${jobId}/reschedule`, { installationDate });
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const cancelJob = async (jobId: string): Promise<Job> => {
+  try {
+    const response = await apiClient.put<Job>(`/jobs/${jobId}/cancel`);
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const updateJob = async (id: string, data: Partial<Job>): Promise<Job> => {
+  try {
+    const response = await apiClient.put<Job>(`/jobs/${id}`, data);
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const deleteJob = async (id: string): Promise<void> => {
+  try {
+    await apiClient.delete(`/jobs/${id}`);
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const fetchJobsByStatus = async (status: JobStatus): Promise<Job[]> => {
+  try {
+    const response = await apiClient.get<Job[]>(`/jobs/status/${status}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error as AxiosError));
+  }
+};
+
+export const completeJob = async (jobId: string, actualInstallationDate: string): Promise<Job> => {
+  try {
+    const response = await apiClient.put<Job>(`/jobs/${jobId}/complete`, { actualInstallationDate });
     return response.data;
   } catch (error) {
     throw new Error(handleApiError(error as AxiosError));
