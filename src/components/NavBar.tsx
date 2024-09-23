@@ -7,10 +7,10 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/' },
   { label: 'Rental Requests', path: '/rental-requests' },
   { label: 'Quotes', path: '/quotes' },
   { label: 'Customers', path: '/customers' },
+  { label: 'Jobs', path: '/jobs' },
   { label: 'Settings', path: '/settings' },
 ];
 
@@ -24,7 +24,9 @@ const NavBar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <span className="text-white text-xl font-semibold">SameDayRamps CRM</span>
+            <Link to="/" className="text-white text-xl font-semibold">
+              SameDayRamps CRM
+            </Link>
           </div>
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-4">
